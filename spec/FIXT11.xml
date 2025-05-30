@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fix type="FIXT" major="1" minor="1">
+  <header>
+    <field name="BeginString" required="Y"/>
+    <field name="BodyLength" required="Y"/>
+    <field name="MsgType" required="Y"/>
+    <field name="SenderCompID" required="Y"/>
+    <field name="TargetCompID" required="Y"/>
+    <field name="OnBehalfOfCompID" required="N"/>
+    <field name="DeliverToCompID" required="N"/>
+    <field name="SecureDataLen" required="N"/>
+    <field name="SecureData" required="N"/>
+    <field name="MsgSeqNum" required="Y"/>
+    <field name="SenderSubID" required="N"/>
+    <field name="SenderLocationID" required="N"/>
+    <field name="TargetSubID" required="N"/>
+    <field name="TargetLocationID" required="N"/>
+    <field name="OnBehalfOfSubID" required="N"/>
+    <field name="OnBehalfOfLocationID" required="N"/>
+    <field name="DeliverToSubID" required="N"/>
+    <field name="DeliverToLocationID" required="N"/>
+    <field name="PossDupFlag" required="N"/>
+    <field name="PossResend" required="N"/>
+    <field name="SendingTime" required="Y"/>
+    <field name="OrigSendingTime" required="N"/>
+    <field name="XmlDataLen" required="N"/>
+    <field name="XmlData" required="N"/>
+    <field name="MessageEncoding" required="N"/>
+    <field name="LastMsgSeqNumProcessed" required="N"/>
+    <field name="ApplVerID" required="N"/>
+    <field name="CstmApplVerID" required="N"/>
+    <field name="NoHops" required="N"/>
+    <group name="NoHops" required="N">
+      <field name="HopCompID" required="N"/>
+      <field name="HopSendingTime" required="N"/>
+      <field name="HopRefID" required="N"/>
+    </group>
+  </header>
+  <trailer>
+    <field name="SignatureLength" required="N"/>
+    <field name="Signature" required="N"/>
+    <field name="CheckSum" required="Y"/>
+  </trailer>
+  <messages>
+    <message name="Heartbeat" msgtype="0" msgcat="admin">
+      <field name="TestReqID" required="N"/>
+    </message>
+    <message name="TestRequest" msgtype="1" msgcat="admin">
+      <field name="TestReqID" required="Y"/>
+    </message>
+    <message name="ResendRequest" msgtype="2" msgcat="admin">
+      <field name="BeginSeqNo" required="Y"/>
+      <field name="EndSeqNo" required="Y"/>
+    </message>
+    <message name="Reject" msgtype="3" msgcat="admin">
+      <field name="RefSeqNum" required="Y"/>
+      <field name="RefTagID" required="N"/>
+      <field name="RefMsgType" required="N"/>
+      <field name="SessionRejectReason" required="N"/>
+      <field name="Text" required="N"/>
+      <field name="EncodedTextLen" required="N"/>
+      <field name="EncodedText" required="N"/>
+    </message>
+    <message name="SequenceReset" msgtype="4" msgcat="admin">
+      <field name="GapFillFlag" required="N"/>
+      <field name="NewSeqNo" required="Y"/>
+    </message>
+    <message name="Logout" msgtype="5" msgcat="admin">
+      <field name="Text" required="N"/>
+      <field name="EncodedTextLen" required="N"/>
+      <field name="EncodedText" required="N"/>
+    </message>
+    <message name="Logon" msgtype="A" msgcat="admin">
+      <field name="EncryptMethod" required="Y"/>
+      <field name="HeartBtInt" required="Y"/>
+      <field name="RawDataLength" required="N"/>
+      <field name="RawData" required="N"/>
+      <field name="ResetSeqNumFlag" required="N"/>
+      <field name="NextExpectedMsgSeqNum" required="N"/>
+      <field name="MaxMessageSize" required="N"/>
+      <field name="TestMessageIndicator" required="N"/>
+      <field name="Username" required="N"/>
+      <field name="Password" required="N"/>
+      <field name="DefaultApplVerID" required="Y"/>
+      <field name="DefaultCstmApplVerID" required="N"/>
+      <field name="Text" required="N"/>
+      <field name="EncodedTextLen" required="N"/>
+      <field name="EncodedText" required="N"/>
+      <field name="NoMsgTypes" required="N"/>
+      <group name="NoMsgTypes" required="N">
+        <field name="RefMsgType" required="N"/>
+        <field name="MsgDirection" required="N"/>
+        <field name="RefApplVerID" required="N"/>
+        <field name="RefCstmApplVerID" required="N"/>
+      </group>
+    </message>
+  </messages>
+  <fields>
+    <field number="8" name="BeginString" type="STRING"/>
+    <field number="9" name="BodyLength" type="LENGTH"/>
+    <field number="35" name="MsgType" type="STRING"/>
+    <field number="49" name="SenderCompID" type="STRING"/>
+    <field number="56" name="TargetCompID" type="STRING"/>
+    <field number="115" name="OnBehalfOfCompID" type="STRING"/>
+    <field number="128" name="DeliverToCompID" type="STRING"/>
+    <field number="90" name="SecureDataLen" type="LENGTH"/>
+    <field number="91" name="SecureData" type="DATA"/>
+    <field number="34" name="MsgSeqNum" type="SEQNUM"/>
+    <field number="50" name="SenderSubID" type="STRING"/>
+    <field number="142" name="SenderLocationID" type="STRING"/>
+    <field number="57" name="TargetSubID" type="STRING"/>
+    <field number="143" name="TargetLocationID" type="STRING"/>
+    <field number="116" name="OnBehalfOfSubID" type="STRING"/>
+    <field number="144" name="OnBehalfOfLocationID" type="STRING"/>
+    <field number="129" name="DeliverToSubID" type="STRING"/>
+    <field number="145" name="DeliverToLocationID" type="STRING"/>
+    <field number="43" name="PossDupFlag" type="BOOLEAN"/>
+    <field number="97" name="PossResend" type="BOOLEAN"/>
+    <field number="52" name="SendingTime" type="UTCTIMESTAMP"/>
+    <field number="122" name="OrigSendingTime" type="UTCTIMESTAMP"/>
+    <field number="212" name="XmlDataLen" type="LENGTH"/>
+    <field number="213" name="XmlData" type="DATA"/>
+    <field number="347" name="MessageEncoding" type="STRING"/>
+    <field number="369" name="LastMsgSeqNumProcessed" type="SEQNUM"/>
+    <field number="1128" name="ApplVerID" type="STRING"/>
+    <field number="1129" name="CstmApplVerID" type="STRING"/>
+    <field number="627" name="NoHops" type="NUMINGROUP"/>
+    <field number="628" name="HopCompID" type="STRING"/>
+    <field number="629" name="HopSendingTime" type="UTCTIMESTAMP"/>
+    <field number="630" name="HopRefID" type="SEQNUM"/>
+    <field number="93" name="SignatureLength" type="LENGTH"/>
+    <field number="89" name="Signature" type="DATA"/>
+    <field number="10" name="CheckSum" type="STRING"/>
+    <field number="112" name="TestReqID" type="STRING"/>
+    <field number="7" name="BeginSeqNo" type="SEQNUM"/>
+    <field number="16" name="EndSeqNo" type="SEQNUM"/>
+    <field number="45" name="RefSeqNum" type="SEQNUM"/>
+    <field number="371" name="RefTagID" type="INT"/>
+    <field number="372" name="RefMsgType" type="STRING"/>
+    <field number="373" name="SessionRejectReason" type="INT"/>
+    <field number="58" name="Text" type="STRING"/>
+    <field number="354" name="EncodedTextLen" type="LENGTH"/>
+    <field number="355" name="EncodedText" type="DATA"/>
+    <field number="123" name="GapFillFlag" type="BOOLEAN"/>
+    <field number="36" name="NewSeqNo" type="SEQNUM"/>
+    <field number="98" name="EncryptMethod" type="INT"/>
+    <field number="108" name="HeartBtInt" type="INT"/>
+    <field number="95" name="RawDataLength" type="LENGTH"/>
+    <field number="96" name="RawData" type="DATA"/>
+    <field number="141" name="ResetSeqNumFlag" type="BOOLEAN"/>
+    <field number="789" name="NextExpectedMsgSeqNum" type="SEQNUM"/>
+    <field number="383" name="MaxMessageSize" type="LENGTH"/>
+    <field number="464" name="TestMessageIndicator" type="BOOLEAN"/>
+    <field number="553" name="Username" type="STRING"/>
+    <field number="554" name="Password" type="STRING"/>
+    <field number="1137" name="DefaultApplVerID" type="STRING"/>
+    <field number="1408" name="DefaultCstmApplVerID" type="STRING"/>
+    <field number="384" name="NoMsgTypes" type="NUMINGROUP"/>
+    <field number="91" name="MsgDirection" type="CHAR"/>
+    <field number="1130" name="RefApplVerID" type="STRING"/>
+    <field number="1131" name="RefCstmApplVerID" type="STRING"/>
+  </fields>
+</fix>

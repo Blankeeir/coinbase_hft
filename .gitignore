@@ -1,0 +1,38 @@
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+
+# Environment variables
+.env
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+store/
+
+# Model files
+models/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+.DS_Store
+
+# Dashboard data
+dashboard/data/

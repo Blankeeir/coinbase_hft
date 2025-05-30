@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fix type="FIX" major="5" minor="0" servicepack="2">
+  <header>
+    <field name="ApplVerID" required="N"/>
+    <field name="ApplExtID" required="N"/>
+    <field name="CstmApplVerID" required="N"/>
+  </header>
+  <trailer>
+  </trailer>
+  <messages>
+    <!-- Market Data Messages -->
+    <message name="MarketDataRequest" msgtype="V" msgcat="app">
+      <field name="MDReqID" required="Y"/>
+      <field name="SubscriptionRequestType" required="Y"/>
+      <field name="MarketDepth" required="Y"/>
+      <field name="MDUpdateType" required="N"/>
+      <field name="AggregatedBook" required="N"/>
+      <field name="NoMDEntryTypes" required="Y"/>
+      <group name="NoMDEntryTypes" required="Y">
+        <field name="MDEntryType" required="Y"/>
+      </group>
+      <field name="NoRelatedSym" required="Y"/>
+      <group name="NoRelatedSym" required="Y">
+        <field name="Symbol" required="Y"/>
+        <field name="SecurityID" required="N"/>
+        <field name="SecurityIDSource" required="N"/>
+      </group>
+    </message>
+    <message name="MarketDataSnapshotFullRefresh" msgtype="W" msgcat="app">
+      <field name="MDReqID" required="N"/>
+      <field name="Symbol" required="Y"/>
+      <field name="SecurityID" required="N"/>
+      <field name="SecurityIDSource" required="N"/>
+      <field name="NoMDEntries" required="Y"/>
+      <group name="NoMDEntries" required="Y">
+        <field name="MDEntryType" required="Y"/>
+        <field name="MDEntryPx" required="Y"/>
+        <field name="MDEntrySize" required="Y"/>
+        <field name="MDEntryDate" required="N"/>
+        <field name="MDEntryTime" required="N"/>
+        <field name="OrderID" required="N"/>
+      </group>
+    </message>
+    <message name="MarketDataIncrementalRefresh" msgtype="X" msgcat="app">
+      <field name="MDReqID" required="N"/>
+      <field name="NoMDEntries" required="Y"/>
+      <group name="NoMDEntries" required="Y">
+        <field name="MDUpdateAction" required="Y"/>
+        <field name="MDEntryType" required="Y"/>
+        <field name="Symbol" required="N"/>
+        <field name="SecurityID" required="N"/>
+        <field name="SecurityIDSource" required="N"/>
+        <field name="MDEntryPx" required="N"/>
+        <field name="MDEntrySize" required="N"/>
+        <field name="MDEntryDate" required="N"/>
+        <field name="MDEntryTime" required="N"/>
+        <field name="OrderID" required="N"/>
+      </group>
+    </message>
+    <message name="MarketDataRequestReject" msgtype="Y" msgcat="app">
+      <field name="MDReqID" required="Y"/>
+      <field name="MDReqRejReason" required="N"/>
+      <field name="Text" required="N"/>
+    </message>
+    
+    <!-- Order Entry Messages -->
+    <message name="NewOrderSingle" msgtype="D" msgcat="app">
+      <field name="ClOrdID" required="Y"/>
+      <field name="Account" required="N"/>
+      <field name="Symbol" required="Y"/>
+      <field name="Side" required="Y"/>
+      <field name="TransactTime" required="Y"/>
+      <field name="OrderQty" required="Y"/>
+      <field name="OrdType" required="Y"/>
+      <field name="Price" required="N"/>
+      <field name="TimeInForce" required="N"/>
+      <field name="ExecInst" required="N"/>
+      <field name="HandlInst" required="N"/>
+    </message>
+    <message name="OrderCancelRequest" msgtype="F" msgcat="app">
+      <field name="OrigClOrdID" required="Y"/>
+      <field name="ClOrdID" required="Y"/>
+      <field name="Symbol" required="Y"/>
+      <field name="Side" required="Y"/>
+      <field name="TransactTime" required="Y"/>
+      <field name="OrderQty" required="N"/>
+    </message>
+    <message name="OrderCancelReplaceRequest" msgtype="G" msgcat="app">
+      <field name="OrigClOrdID" required="Y"/>
+      <field name="ClOrdID" required="Y"/>
+      <field name="Account" required="N"/>
+      <field name="Symbol" required="Y"/>
+      <field name="Side" required="Y"/>
+      <field name="TransactTime" required="Y"/>
+      <field name="OrderQty" required="Y"/>
+      <field name="OrdType" required="Y"/>
+      <field name="Price" required="N"/>
+      <field name="TimeInForce" required="N"/>
+      <field name="ExecInst" required="N"/>
+      <field name="HandlInst" required="N"/>
+    </message>
+    <message name="OrderStatusRequest" msgtype="H" msgcat="app">
+      <field name="ClOrdID" required="Y"/>
+      <field name="Symbol" required="Y"/>
+      <field name="Side" required="N"/>
+    </message>
+    
+    <!-- Execution Reports -->
+    <message name="ExecutionReport" msgtype="8" msgcat="app">
+      <field name="OrderID" required="Y"/>
+      <field name="ClOrdID" required="Y"/>
+      <field name="ExecID" required="Y"/>
+      <field name="ExecType" required="Y"/>
+      <field name="OrdStatus" required="Y"/>
+      <field name="Symbol" required="Y"/>
+      <field name="Side" required="Y"/>
+      <field name="OrderQty" required="Y"/>
+      <field name="LeavesQty" required="Y"/>
+      <field name="CumQty" required="Y"/>
+      <field name="AvgPx" required="Y"/>
+      <field name="LastPx" required="N"/>
+      <field name="LastQty" required="N"/>
+      <field name="TransactTime" required="N"/>
+      <field name="Text" required="N"/>
+    </message>
+    <message name="OrderCancelReject" msgtype="9" msgcat="app">
+      <field name="OrderID" required="Y"/>
+      <field name="ClOrdID" required="Y"/>
+      <field name="OrigClOrdID" required="Y"/>
+      <field name="OrdStatus" required="Y"/>
+      <field name="CxlRejResponseTo" required="Y"/>
+      <field name="CxlRejReason" required="N"/>
+      <field name="Text" required="N"/>
+    </message>
+    
+    <!-- Position Messages -->
+    <message name="RequestForPositions" msgtype="AN" msgcat="app">
+      <field name="PosReqID" required="Y"/>
+      <field name="PosReqType" required="Y"/>
+      <field name="Account" required="N"/>
+      <field name="Symbol" required="N"/>
+    </message>
+    <message name="PositionReport" msgtype="AP" msgcat="app">
+      <field name="PosReqID" required="N"/>
+      <field name="PosMaintRptID" required="Y"/>
+      <field name="PosReqResult" required="Y"/>
+      <field name="ClearingBusinessDate" required="Y"/>
+      <field name="Account" required="N"/>
+      <field name="Symbol" required="N"/>
+      <field name="SettlPrice" required="N"/>
+      <field name="SettlPriceType" required="N"/>
+      <field name="PriorSettlPrice" required="N"/>
+      <field name="NoPositions" required="N"/>
+      <group name="NoPositions" required="N">
+        <field name="PosType" required="N"/>
+        <field name="LongQty" required="N"/>
+        <field name="ShortQty" required="N"/>
+        <field name="PosQty" required="N"/>
+        <field name="PosCostAmt" required="N"/>
+        <field name="PosAmtType" required="N"/>
+        <field name="PositionCurrency" required="N"/>
+        <field name="AvgPx" required="N"/>
+        <field name="RealisedPnL" required="N"/>
+        <field name="UnrealisedPnL" required="N"/>
+      </group>
+    </message>
+  </messages>
+  <fields>
+    <!-- Common Fields -->
+    <field number="1128" name="ApplVerID" type="STRING"/>
+    <field number="1156" name="ApplExtID" type="INT"/>
+    <field number="1129" name="CstmApplVerID" type="STRING"/>
+    <field number="55" name="Symbol" type="STRING"/>
+    <field number="48" name="SecurityID" type="STRING"/>
+    <field number="22" name="SecurityIDSource" type="INT"/>
+    <field number="54" name="Side" type="CHAR"/>
+    <field number="38" name="OrderQty" type="QTY"/>
+    <field number="44" name="Price" type="PRICE"/>
+    <field number="58" name="Text" type="STRING"/>
+    <field number="60" name="TransactTime" type="UTCTIMESTAMP"/>
+    <field number="1" name="Account" type="STRING"/>
+    
+    <!-- Market Data Fields -->
+    <field number="262" name="MDReqID" type="STRING"/>
+    <field number="263" name="SubscriptionRequestType" type="CHAR"/>
+    <field number="264" name="MarketDepth" type="INT"/>
+    <field number="265" name="MDUpdateType" type="INT"/>
+    <field number="266" name="AggregatedBook" type="BOOLEAN"/>
+    <field number="267" name="NoMDEntryTypes" type="NUMINGROUP"/>
+    <field number="269" name="MDEntryType" type="CHAR"/>
+    <field number="146" name="NoRelatedSym" type="NUMINGROUP"/>
+    <field number="268" name="NoMDEntries" type="NUMINGROUP"/>
+    <field number="270" name="MDEntryPx" type="PRICE"/>
+    <field number="271" name="MDEntrySize" type="QTY"/>
+    <field number="272" name="MDEntryDate" type="UTCDATE"/>
+    <field number="273" name="MDEntryTime" type="UTCTIMEONLY"/>
+    <field number="279" name="MDUpdateAction" type="CHAR"/>
+    <field number="37" name="OrderID" type="STRING"/>
+    <field number="281" name="MDReqRejReason" type="INT"/>
+    
+    <!-- Order Fields -->
+    <field number="11" name="ClOrdID" type="STRING"/>
+    <field number="41" name="OrigClOrdID" type="STRING"/>
+    <field number="40" name="OrdType" type="CHAR"/>
+    <field number="59" name="TimeInForce" type="CHAR"/>
+    <field number="18" name="ExecInst" type="MULTIPLECHARVALUE"/>
+    <field number="21" name="HandlInst" type="CHAR"/>
+    
+    <!-- Execution Report Fields -->
+    <field number="17" name="ExecID" type="STRING"/>
+    <field number="150" name="ExecType" type="CHAR"/>
+    <field number="39" name="OrdStatus" type="CHAR"/>
+    <field number="151" name="LeavesQty" type="QTY"/>
+    <field number="14" name="CumQty" type="QTY"/>
+    <field number="6" name="AvgPx" type="PRICE"/>
+    <field number="31" name="LastPx" type="PRICE"/>
+    <field number="32" name="LastQty" type="QTY"/>
+    <field number="434" name="CxlRejResponseTo" type="CHAR"/>
+    <field number="102" name="CxlRejReason" type="INT"/>
+    
+    <!-- Position Fields -->
+    <field number="710" name="PosReqID" type="STRING"/>
+    <field number="724" name="PosReqType" type="INT"/>
+    <field number="721" name="PosMaintRptID" type="STRING"/>
+    <field number="728" name="PosReqResult" type="INT"/>
+    <field number="715" name="ClearingBusinessDate" type="LOCALMKTDATE"/>
+    <field number="730" name="SettlPrice" type="PRICE"/>
+    <field number="731" name="SettlPriceType" type="INT"/>
+    <field number="734" name="PriorSettlPrice" type="PRICE"/>
+    <field number="702" name="NoPositions" type="NUMINGROUP"/>
+    <field number="703" name="PosType" type="STRING"/>
+    <field number="704" name="LongQty" type="QTY"/>
+    <field number="705" name="ShortQty" type="QTY"/>
+    <field number="706" name="PosQty" type="QTY"/>
+    <field number="707" name="PosCostAmt" type="AMT"/>
+    <field number="708" name="PosAmtType" type="INT"/>
+    <field number="1055" name="PositionCurrency" type="STRING"/>
+    <field number="730" name="RealisedPnL" type="AMT"/>
+    <field number="732" name="UnrealisedPnL" type="AMT"/>
+  </fields>
+</fix>
