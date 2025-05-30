@@ -104,25 +104,21 @@ git clone https://github.com/yourusername/coinbase_hft.git
 cd coinbase_hft
 ```
 
-2. **Run the installation script**
+2. **Create a virtual environment and install dependencies**
 
 ```bash
-chmod +x install.sh
-./install.sh
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
-
-This script will:
-- Create a Python virtual environment
-- Install all required dependencies
-- Create necessary directories
-- Set up a default .env file from the template
 
 3. **Configure your API credentials**
 
-Edit the `.env` file with your Coinbase International Exchange API credentials:
+Copy the example environment file and edit it with your credentials:
 
 ```bash
-nano .env
+cp .env.example .env
+nano .env  # Or use any text editor
 ```
 
 Fill in the following fields:
@@ -135,32 +131,68 @@ CB_INTX_SENDER_COMPID=your_sender_compid_here
 
 4. **Verify your setup**
 
-Run the test script to verify that everything is set up correctly:
+Run the test setup script to verify that everything is configured correctly:
 
 ```bash
-python run_test.py
+python test_setup.py
 ```
 
 This will check that all required files and directories exist and that the system can initialize properly.
 
-### Running the Bot
+### Running the System
 
-1. **Start in sandbox mode first (recommended)**
+1. **Run with dashboard (recommended)**
+
+The combined runner script starts both the trading system and dashboard:
 
 ```bash
-python main.py --symbol BTC-USD
+python run_hft_system.py --symbol BTC-USD --dashboard
 ```
 
-2. **Customize parameters**
+Access the dashboard at http://localhost:8501 to monitor your trading performance.
+
+2. **Run in test mode (no trading)**
+
+To test the system without actual trading:
 
 ```bash
-python main.py --symbol ETH-USD --window 180 --threshold 0.2
+python run_hft_system.py --test --dashboard
 ```
 
-3. **Run with example script for testing**
+This mode bypasses API credential checks and doesn't connect to the exchange.
+
+3. **Run only the trading system**
 
 ```bash
-python example.py
+python run_hft_system.py --symbol BTC-USD
+```
+
+4. **Customize parameters**
+
+```bash
+python run_hft_system.py --symbol ETH-USD --window 180 --threshold 0.2 --dashboard
+```
+
+### Dashboard
+
+The system includes a real-time dashboard built with Streamlit for monitoring trading performance:
+
+- **Real-time metrics**: Balance, equity, daily PnL, win rate, and Sharpe ratio
+- **Performance charts**: Equity curve, PnL, drawdown, and trading volume
+- **Position monitoring**: Current positions with unrealized PnL
+- **Trade history**: Recent trades with execution details
+
+To start the dashboard:
+
+```bash
+python run_hft_system.py --dashboard
+```
+
+Or run only the dashboard:
+
+```bash
+cd dashboard
+python run_dashboard.py
 ```
 
 ### Monitoring and Logs
@@ -168,6 +200,7 @@ python example.py
 - Logs are stored in the `log` directory
 - Check `coinbase_hft.log` for detailed operation logs
 - The bot outputs portfolio summary every 100 trading cycles
+- Dashboard metrics are stored in `dashboard/data/` for persistence
 
 ### Troubleshooting
 
