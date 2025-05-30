@@ -55,3 +55,17 @@ Orders are first posted passively at the top of book.  If passive fills lag beyo
 
 ---  
 **DISCLAIMER** This codebase is educational and shipped *as‑is*. Run it on a paper account and understand the risks before deploying real capital.
+
+---
+**Very Important Updates for Next Steps**
+Next steps & suggestions
+Feature-engineering – add short-term volatility, trade-imbalance, VWAP distance, and Hawkes-based OFI forecasts for richer inputs.
+
+Risk controls – plug your internal position limits & kill-switches into execution.py.
+
+** Correct any issues occured
+
+
+comprehensive references for hft strategy:
+
+strategy need to be further improved
