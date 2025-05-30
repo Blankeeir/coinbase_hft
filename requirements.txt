@@ -1,0 +1,7 @@
+quickfix
+numpy
+pandas
+scikit-learn
+requests
+websockets
+python-dotenv
