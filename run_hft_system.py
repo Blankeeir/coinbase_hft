@@ -115,7 +115,7 @@ def check_env_file():
         ]
         
         for var in required_vars:
-            if var in env_content:
+            if var in env_content and not env_content.split(var)[1].strip():
                 logger.error(f"API credentials not fully configured in .env file. Please set {var.strip('=')}")
                 return False
         
