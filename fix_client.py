@@ -39,6 +39,9 @@ class CoinbaseFIXClient:
         on_trade_capture_report: Optional[Callable[[FIXMessage], None]] = None,
         on_quote_request: Optional[Callable[[FIXMessage], None]] = None,
         on_quote: Optional[Callable[[FIXMessage], None]] = None,
+        on_security_list: Optional[Callable[[FIXMessage, List[Dict]], None]] = None,
+        on_security_definition: Optional[Callable[[FIXMessage, Dict], None]] = None,
+        on_market_data_request_reject: Optional[Callable[[FIXMessage], None]] = None,
         test_mode: bool = False,
     ):
         """
@@ -53,6 +56,9 @@ class CoinbaseFIXClient:
             on_trade_capture_report: Callback for trade capture reports
             on_quote_request: Callback for quote requests
             on_quote: Callback for quote messages
+            on_security_list: Callback for security list messages
+            on_security_definition: Callback for security definition messages
+            on_market_data_request_reject: Callback for market data request reject messages
             test_mode: Run in test mode without real connection
         """
         self.session_type = session_type
@@ -63,6 +69,9 @@ class CoinbaseFIXClient:
         self.on_trade_capture_report = on_trade_capture_report
         self.on_quote_request = on_quote_request
         self.on_quote = on_quote
+        self.on_security_list = on_security_list
+        self.on_security_definition = on_security_definition
+        self.on_market_data_request_reject = on_market_data_request_reject
         self.test_mode = test_mode
         
         if session_type == "order_entry":
@@ -96,6 +105,14 @@ class CoinbaseFIXClient:
         self.journaler = None
         self.connected = False
         self.authenticated = False
+        
+        if self.test_mode:
+            self.connected = True
+            class MockConnection:
+                async def send_msg(self, message):
+                    logger.info(f"Test mode: Would send message {message}")
+                    return True
+            self.connection = MockConnection()
         
         self.next_client_order_id = int(time.time())
         self.next_request_id = int(time.time())
@@ -400,6 +417,27 @@ class CoinbaseFIXClient:
                 self._handle_quote_status_report(message)
                 return
             
+            # Handle Market Data messages
+            if msg_type == "x":  # SecurityListRequest
+                self._handle_security_list_request(message)
+                return
+                
+            if msg_type == "y":  # SecurityList
+                self._handle_security_list(message)
+                return
+                
+            if msg_type == "d":  # SecurityDefinition
+                self._handle_security_definition(message)
+                return
+                
+            if msg_type == "V":  # MarketDataRequest
+                self._handle_market_data_request(message)
+                return
+                
+            if msg_type == "Y":  # MarketDataRequestReject
+                self._handle_market_data_request_reject(message)
+                return
+            
             logger.debug(f"Received unhandled message type: {msg_type}")
             
         except Exception as e:
@@ -477,22 +515,54 @@ class CoinbaseFIXClient:
             ord_status = message.get(FTag.OrdStatus, "")
             symbol = message.get(FTag.Symbol, "")
             side = message.get(FTag.Side, "")
+            ord_type = message.get(FTag.OrdType, "")
             
             exec_type_map = {
                 "0": "New", "1": "Partial Fill", "2": "Fill", 
                 "4": "Canceled", "5": "Replaced", "8": "Rejected",
-                "C": "Expired", "L": "Stop Triggered"
+                "C": "Expired", "L": "Stop Triggered", "6": "Pending Cancel",
+                "A": "Pending New", "E": "Pending Replace"
             }
             
             ord_status_map = {
                 "0": "New", "1": "Partially Filled", "2": "Filled",
-                "4": "Canceled", "5": "Replaced", "8": "Rejected", "C": "Expired"
+                "4": "Canceled", "5": "Replaced", "8": "Rejected", "C": "Expired",
+                "6": "Pending Cancel", "A": "Pending New", "E": "Pending Replace"
             }
+            
+            ord_type_desc = "TPSL" if ord_type == "O" else ""
             
             exec_desc = exec_type_map.get(exec_type, exec_type)
             status_desc = ord_status_map.get(ord_status, ord_status)
             
-            logger.info(f"ExecutionReport: {clord_id} {symbol} {side} - {exec_desc} ({status_desc})")
+            logger.info(f"ExecutionReport: {clord_id} {symbol} {side} {ord_type_desc} - {exec_desc} ({status_desc})")
+            
+            try:
+                no_party_ids = int(message.get(453, "0"))
+                if no_party_ids > 0 and self.test_mode:
+                    portfolio_id = "portfolio-uuid-123"  # Mock for test mode
+                    logger.info(f"  Portfolio: {portfolio_id}")
+            except Exception as e:
+                logger.debug(f"No portfolio information: {e}")
+            
+            if exec_type in ["1", "2"]:  # Partial Fill or Fill
+                try:
+                    no_misc_fees = int(message.get(136, "0"))
+                    if no_misc_fees > 0 and self.test_mode:
+                        fee_amt = message.get(137, "0")
+                        fee_curr = message.get(138, "")
+                        fee_type = message.get(139, "")
+                        
+                        fee_type_map = {
+                            "4": "Exchange fees",
+                            "7": "Other",
+                            "14": "Security lending"
+                        }
+                        
+                        fee_type_desc = fee_type_map.get(fee_type, f"Unknown ({fee_type})")
+                        logger.info(f"  Fees: {fee_amt} {fee_curr} ({fee_type_desc})")
+                except Exception as e:
+                    logger.debug(f"No fee information: {e}")
             
             if exec_type == "8":
                 reject_reason = message.get(103, "Unknown")
@@ -587,15 +657,58 @@ class CoinbaseFIXClient:
         """
         try:
             trd_type = message.get(828, "")
+            trd_match_id = message.get(880, "")
             exec_id = message.get(FTag.ExecID, "")
+            trade_link_id = message.get(820, "")
             symbol = message.get(FTag.Symbol, "")
             last_qty = message.get(32, "")
             last_px = message.get(31, "")
             side = ""
+            portfolio_id = None
             
             no_sides = int(message.get(552, "0"))
             if no_sides > 0:
                 side = message.get(FTag.Side, "")
+                
+                try:
+                    no_party_ids = int(message.get(453, "0"))
+                    if no_party_ids > 0:
+                        for i in range(no_party_ids):
+                            party_id = message.get(448, "", i)
+                            party_role = message.get(452, "", i)
+                            
+                            if party_role == "24":  # Customer account
+                                portfolio_id = party_id
+                                break
+                            elif party_role == "3":  # Client ID
+                                client_id = party_id
+                except Exception as e:
+                    logger.debug(f"Error extracting party information: {e}")
+            
+            fees = []
+            try:
+                no_misc_fees = int(message.get(136, "0"))
+                if no_misc_fees > 0:
+                    for i in range(no_misc_fees):
+                        fee_amt = message.get(137, "0", i)
+                        fee_curr = message.get(138, "", i)
+                        fee_type = message.get(139, "", i)
+                        
+                        fee_type_map = {
+                            "4": "Exchange fees",
+                            "7": "Other",
+                            "14": "Asset lending"
+                        }
+                        
+                        fee_type_desc = fee_type_map.get(fee_type, f"Unknown ({fee_type})")
+                        
+                        fees.append({
+                            "amount": fee_amt,
+                            "currency": fee_curr,
+                            "type": fee_type_desc
+                        })
+            except Exception as e:
+                logger.debug(f"Error extracting fee information: {e}")
             
             trd_type_map = {
                 "0": "Regular trade",
@@ -604,13 +717,35 @@ class CoinbaseFIXClient:
             
             trd_desc = trd_type_map.get(trd_type, trd_type)
             
-            if trd_type == "3":
+            if trd_type == "3":  # Transfer
                 transfer_reason = message.get(830, "")
-                logger.info(f"Trade Capture Report: {exec_id} {symbol} {side} - "
-                          f"{trd_desc} ({transfer_reason}), Qty: {last_qty}, Px: {last_px}")
+                transfer_reason_map = {
+                    "LIQUIDATED": "Position liquidated",
+                    "ASSIGNED": "Position assigned"
+                }
+                reason_desc = transfer_reason_map.get(transfer_reason, transfer_reason)
+                
+                logger.info(f"Trade Capture Report: {trd_match_id} {symbol} {side} - "
+                          f"{trd_desc} ({reason_desc}), Qty: {last_qty}, Px: {last_px}")
+                
+                if portfolio_id:
+                    logger.info(f"  Portfolio: {portfolio_id}")
+                
+                if fees:
+                    logger.info(f"  Fees: {len(fees)} fee entries")
+                    for fee in fees:
+                        logger.info(f"    {fee['amount']} {fee['currency']} ({fee['type']})")
             else:
-                logger.info(f"Trade Capture Report: {exec_id} {symbol} {side} - "
+                logger.info(f"Trade Capture Report: {trd_match_id} {symbol} {side} - "
                           f"{trd_desc}, Qty: {last_qty}, Px: {last_px}")
+                
+                if portfolio_id:
+                    logger.info(f"  Portfolio: {portfolio_id}")
+                
+                if fees:
+                    logger.info(f"  Fees: {len(fees)} fee entries")
+                    for fee in fees:
+                        logger.info(f"    {fee['amount']} {fee['currency']} ({fee['type']})")
             
             if self.on_trade_capture_report:
                 self.on_trade_capture_report(message)
@@ -697,6 +832,27 @@ class CoinbaseFIXClient:
             symbol = message.get(FTag.Symbol, "")
             quote_status = message.get(297, "")
             
+            bid_px = message.get(132, "")
+            offer_px = message.get(133, "")
+            bid_size = message.get(134, "")
+            offer_size = message.get(135, "")
+            valid_until_time = message.get(62, "")
+            expire_time = message.get(126, "")
+            
+            side = None
+            if quote_status == "19":  # Pending End Trade
+                side = message.get(FTag.Side, "")
+                order_qty = message.get(FTag.OrderQty, "")
+                
+                side_map = {
+                    "1": "Buy",
+                    "2": "Sell"
+                }
+                
+                side_desc = side_map.get(side, side)
+                if side and order_qty:
+                    logger.info(f"  Quote selected for execution: {side_desc} {order_qty}")
+            
             status_map = {
                 "5": "Rejected",
                 "7": "Expired", 
@@ -707,9 +863,26 @@ class CoinbaseFIXClient:
             
             status_desc = status_map.get(quote_status, quote_status)
             
-            if quote_status == "5":
+            if quote_status == "5":  # Rejected
                 text = message.get(FTag.Text, "")
                 logger.warning(f"Quote Status Report: {quote_id} {symbol} - {status_desc}: {text}")
+            elif quote_status == "7":  # Expired
+                logger.warning(f"Quote Status Report: {quote_id} {symbol} - {status_desc}, "
+                             f"Expired at: {expire_time}")
+            elif quote_status == "16":  # Active
+                logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}, "
+                          f"Valid until: {valid_until_time}")
+                
+                if bid_px and bid_size:
+                    logger.info(f"  Bid: {bid_px} x {bid_size}")
+                if offer_px and offer_size:
+                    logger.info(f"  Offer: {offer_px} x {offer_size}")
+            elif quote_status == "17":  # Canceled
+                logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}, "
+                          f"Not selected for execution")
+            elif quote_status == "19":  # Pending End Trade
+                logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}, "
+                          f"Selected for execution")
             else:
                 logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}")
             
@@ -939,6 +1112,8 @@ class CoinbaseFIXClient:
         portfolio_id: Optional[str] = None,
         post_only: bool = False,
         self_trade_prevention: str = "Q",  # Default: Cancel both orders
+        stop_price: Optional[float] = None,  # For TPSL orders
+        stop_limit_price: Optional[float] = None,  # For TPSL orders
     ) -> str:
         """
         Place a new order.
@@ -946,11 +1121,16 @@ class CoinbaseFIXClient:
         Args:
             symbol: Trading symbol (e.g., 'BTC-USD')
             side: Order side ('BUY' or 'SELL')
-            order_type: Order type ('LIMIT', 'MARKET', 'STOP', 'STOP_LIMIT')
+            order_type: Order type ('LIMIT', 'MARKET', 'STOP', 'STOP_LIMIT', 'TAKE_PROFIT_STOP_LOSS')
             quantity: Order quantity
-            price: Order price (required for LIMIT and STOP_LIMIT orders)
-            time_in_force: Time in force ('GTC', 'IOC', 'FOK', 'GTD')
+            price: Order price (required for LIMIT, STOP_LIMIT, and TPSL orders)
+            time_in_force: Time in force ('GTC', 'IOC', 'FOK', 'GTD'). TPSL orders only support GTC and GTD.
             order_id: Custom order ID (generated if not provided)
+            portfolio_id: Portfolio UUID (optional)
+            post_only: Post only flag (not supported for TPSL orders)
+            self_trade_prevention: Self trade prevention strategy
+            stop_price: Stop price for TPSL orders (StopPx field)
+            stop_limit_price: Stop limit price for TPSL orders (StopLimitPx field)
             
         Returns:
             str: Client order ID
@@ -1020,8 +1200,32 @@ class CoinbaseFIXClient:
             if order_type.upper() in ["LIMIT", "STOP_LIMIT"] and price is not None:
                 nos.set(FTag.Price, str(price))
             
-            if order_type.upper() in ["STOP", "STOP_LIMIT", "TAKE_PROFIT_STOP_LOSS"] and price is not None:
+            if order_type.upper() in ["STOP", "STOP_LIMIT"] and price is not None:
                 nos.set(FTag.StopPx, str(price))
+            
+            # Handle TPSL orders
+            if order_type.upper() == "TAKE_PROFIT_STOP_LOSS":
+                if time_in_force.upper() not in ["GTC", "GTD"]:
+                    raise ValueError("TPSL orders only support GTC and GTD time in force")
+                
+                if post_only:
+                    raise ValueError("TPSL orders do not support post_only")
+                
+                if price is None or stop_price is None or stop_limit_price is None:
+                    raise ValueError("TPSL orders require price, stop_price, and stop_limit_price")
+                
+                nos.set(FTag.Price, str(price))
+                
+                nos.set(FTag.StopPx, str(stop_price))
+                
+                nos.set(3040, str(stop_limit_price))
+                
+                if fix_side == "2":  # Sell TPSL
+                    if not (price > stop_price > stop_limit_price):
+                        raise ValueError("For Sell TPSL: Price must be > StopPx and StopPx must be > StopLimitPx")
+                else:  # Buy TPSL
+                    if not (price < stop_price < stop_limit_price):
+                        raise ValueError("For Buy TPSL: Price must be < StopPx and StopPx must be < StopLimitPx")
             
             await self.connection.send_msg(nos)
             logger.info(f"Placed {order_type} {side} order for {quantity} {symbol} "
@@ -1259,6 +1463,251 @@ class CoinbaseFIXClient:
         """
         self.next_request_id += 1
         return self.next_request_id
+    
+    def _handle_security_list_request(self, message: FIXMessage) -> None:
+        """
+        Handle SecurityListRequest (35=x) message.
+        
+        Args:
+            message: SecurityListRequest message
+        """
+        try:
+            security_req_id = message.get(320, "")  # SecurityReqID
+            security_list_request_type = message.get(559, "")  # SecurityListRequestType
+            
+            logger.info(f"SecurityListRequest: ID={security_req_id}, Type={security_list_request_type}")
+            
+        except Exception as e:
+            logger.error(f"Error handling SecurityListRequest: {e}")
+    
+    def _handle_security_list(self, message: FIXMessage) -> None:
+        """
+        Handle SecurityList (35=y) message.
+        
+        Args:
+            message: SecurityList message
+        """
+        try:
+            security_req_id = message.get(320, "")  # SecurityReqID
+            security_request_result = message.get(560, "")  # SecurityRequestResult
+            no_related_sym = int(message.get(146, "0"))  # NoRelatedSym
+            
+            securities = []
+            if self.test_mode:
+                if no_related_sym > 0:
+                    securities = [
+                        {
+                            'symbol': "BTC-USD",
+                            'security_type': "FXSPOT",
+                            'security_sub_type': "STANDARD",
+                            'contract_multiplier': "1",
+                            'min_price_increment': "0.01",
+                            'margin_ratio': "0.50",
+                            'currency': "USD",
+                            'min_trade_vol': "1",
+                            'position_limit': "100",
+                            'round_lot': "0.001",
+                            'trading_status': "17"
+                        }
+                    ]
+                    
+                    if no_related_sym > 1:
+                        securities.append({
+                            'symbol': "ETH-USD",
+                            'security_type': "FXSPOT",
+                            'security_sub_type': "STANDARD",
+                            'contract_multiplier': "1",
+                            'min_price_increment': "0.01",
+                            'margin_ratio': "0.75",
+                            'currency': "USD",
+                            'min_trade_vol': "1",
+                            'position_limit': "100",
+                            'round_lot': "0.001",
+                            'trading_status': "17"
+                        })
+            else:
+                logger.warning("Production repeating group access not implemented yet")
+                
+                security = {
+                    'symbol': "",
+                    'security_type': "",
+                    'security_sub_type': "",
+                    'contract_multiplier': "",
+                    'min_price_increment': "",
+                    'margin_ratio': "",
+                    'currency': "",
+                    'min_trade_vol': "",
+                    'position_limit': "",
+                    'round_lot': "",
+                    'trading_status': ""
+                }
+                securities.append(security)
+            
+            logger.info(f"SecurityList: ID={security_req_id}, Result={security_request_result}, "
+                       f"Securities={len(securities)}")
+            
+            if self.on_security_list:
+                self.on_security_list(message, securities)
+                
+        except Exception as e:
+            logger.error(f"Error handling SecurityList: {e}")
+    
+    def _handle_security_definition(self, message: FIXMessage) -> None:
+        """
+        Handle SecurityDefinition (35=d) message.
+        
+        Args:
+            message: SecurityDefinition message
+        """
+        try:
+            security_update_action = message.get(980, "")  # SecurityUpdateAction
+            last_update_time = message.get(779, "")  # LastUpdateTime
+            symbol = message.get(55, "")  # Symbol
+            security_type = message.get(167, "")  # SecurityType
+            security_sub_type = message.get(762, "")  # SecuritySubType
+            min_price_increment = message.get(969, "")  # MinPriceIncrement
+            margin_ratio = message.get(898, "")  # MarginRatio
+            currency = message.get(15, "")  # Currency
+            min_trade_vol = message.get(562, "")  # MinTradeVol
+            position_limit = message.get(970, "")  # PositionLimit
+            trading_status = message.get(1682, "")  # MDSecurityTradingStatus
+            
+            security_def = {
+                'update_action': security_update_action,
+                'last_update_time': last_update_time,
+                'symbol': symbol,
+                'security_type': security_type,
+                'security_sub_type': security_sub_type,
+                'min_price_increment': min_price_increment,
+                'margin_ratio': margin_ratio,
+                'currency': currency,
+                'min_trade_vol': min_trade_vol,
+                'position_limit': position_limit,
+                'trading_status': trading_status
+            }
+            
+            logger.info(f"SecurityDefinition: {symbol} - {security_update_action}")
+            
+            if self.on_security_definition:
+                self.on_security_definition(message, security_def)
+                
+        except Exception as e:
+            logger.error(f"Error handling SecurityDefinition: {e}")
+    
+    def _handle_market_data_request(self, message: FIXMessage) -> None:
+        """
+        Handle MarketDataRequest (35=V) message.
+        
+        Args:
+            message: MarketDataRequest message
+        """
+        try:
+            md_req_id = message.get(262, "")  # MDReqID
+            subscription_request_type = message.get(263, "")  # SubscriptionRequestType
+            market_depth = message.get(264, "")  # MarketDepth
+            no_related_sym = int(message.get(146, "0"))  # NoRelatedSym
+            
+            symbols = []
+            if self.test_mode:
+                if no_related_sym > 0:
+                    symbols.append({'symbol': "BTC-USD", 'security_type': "FXSPOT"})
+                    
+                    if no_related_sym > 1:
+                        symbols.append({'symbol': "ETH-USD", 'security_type': "FXSPOT"})
+            else:
+                logger.warning("Production repeating group access not implemented yet")
+            
+            logger.info(f"MarketDataRequest: ID={md_req_id}, Type={subscription_request_type}, "
+                       f"Depth={market_depth}, Symbols={len(symbols)}")
+                       
+        except Exception as e:
+            logger.error(f"Error handling MarketDataRequest: {e}")
+    
+    def _handle_market_data_request_reject(self, message: FIXMessage) -> None:
+        """
+        Handle MarketDataRequestReject (35=Y) message.
+        
+        Args:
+            message: MarketDataRequestReject message
+        """
+        try:
+            md_req_id = message.get(262, "")  # MDReqID
+            md_req_rej_reason = message.get(281, "")  # MDReqRejReason
+            text = message.get(58, "")  # Text
+            
+            reason_map = {
+                "0": "Unknown symbol",
+                "1": "Duplicate MDReqID", 
+                "5": "Unsupported market depth",
+                "7": "Other"
+            }
+            
+            reason_desc = reason_map.get(md_req_rej_reason, f"Unknown ({md_req_rej_reason})")
+            
+            logger.warning(f"MarketDataRequestReject: ID={md_req_id}, Reason={reason_desc}, Text={text}")
+            
+            if self.on_market_data_request_reject:
+                self.on_market_data_request_reject(message)
+                
+        except Exception as e:
+            logger.error(f"Error handling MarketDataRequestReject: {e}")
+    
+    async def request_security_list(self, security_list_request_type: str = "0") -> str:
+        """
+        Send SecurityListRequest (35=x) message.
+        
+        Args:
+            security_list_request_type: Type of security list request
+                0 = All securities (default)
+                1 = Symbol
+                2 = SecurityType
+                3 = Product
+                4 = TradingSessionID
+                5 = SecurityGroup
+        
+        Returns:
+            SecurityReqID: Unique identifier for the request
+        """
+        security_req_id = self._get_next_request_id()
+        
+        message = FIXMessage("x")
+        message.set(320, security_req_id)  # SecurityReqID
+        message.set(559, security_list_request_type)  # SecurityListRequestType
+        
+        await self.connection.send_msg(message)
+        logger.info(f"SecurityListRequest sent: ID={security_req_id}")
+        return security_req_id
+        
+    async def send_market_data_request(self, symbols: List[str], market_depth: int = 1, 
+                                      subscription_type: str = "1") -> str:
+        """
+        Send MarketDataRequest (35=V) message.
+        
+        Args:
+            symbols: List of symbols to subscribe to
+            market_depth: Depth of market data (1, 10, or 20)
+            subscription_type: Type of subscription
+                1 = Subscribe (default)
+                2 = Unsubscribe
+        
+        Returns:
+            MDReqID: Unique identifier for the request
+        """
+        md_req_id = self._get_next_request_id()
+        
+        message = FIXMessage("V")
+        message.set(262, md_req_id)  # MDReqID
+        message.set(263, subscription_type)  # SubscriptionRequestType
+        message.set(264, str(market_depth))  # MarketDepth
+        message.set(146, str(len(symbols)))  # NoRelatedSym
+        
+        for i, symbol in enumerate(symbols):
+            message.set(55, symbol, i)  # Symbol
+            message.set(167, "FXSPOT", i)  # SecurityType
+        
+        await self.connection.send_msg(message)
+        logger.info(f"MarketDataRequest sent: ID={md_req_id}, Symbols={symbols}")
+        return md_req_id
     
     def _get_utc_timestamp(self) -> str:
         """
