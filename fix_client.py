@@ -520,12 +520,14 @@ class CoinbaseFIXClient:
             exec_type_map = {
                 "0": "New", "1": "Partial Fill", "2": "Fill", 
                 "4": "Canceled", "5": "Replaced", "8": "Rejected",
-                "C": "Expired", "L": "Stop Triggered"
+                "C": "Expired", "L": "Stop Triggered", "6": "Pending Cancel",
+                "A": "Pending New", "E": "Pending Replace"
             }
             
             ord_status_map = {
                 "0": "New", "1": "Partially Filled", "2": "Filled",
-                "4": "Canceled", "5": "Replaced", "8": "Rejected", "C": "Expired"
+                "4": "Canceled", "5": "Replaced", "8": "Rejected", "C": "Expired",
+                "6": "Pending Cancel", "A": "Pending New", "E": "Pending Replace"
             }
             
             ord_type_desc = "TPSL" if ord_type == "O" else ""
@@ -534,6 +536,33 @@ class CoinbaseFIXClient:
             status_desc = ord_status_map.get(ord_status, ord_status)
             
             logger.info(f"ExecutionReport: {clord_id} {symbol} {side} {ord_type_desc} - {exec_desc} ({status_desc})")
+            
+            try:
+                no_party_ids = int(message.get(453, "0"))
+                if no_party_ids > 0 and self.test_mode:
+                    portfolio_id = "portfolio-uuid-123"  # Mock for test mode
+                    logger.info(f"  Portfolio: {portfolio_id}")
+            except Exception as e:
+                logger.debug(f"No portfolio information: {e}")
+            
+            if exec_type in ["1", "2"]:  # Partial Fill or Fill
+                try:
+                    no_misc_fees = int(message.get(136, "0"))
+                    if no_misc_fees > 0 and self.test_mode:
+                        fee_amt = message.get(137, "0")
+                        fee_curr = message.get(138, "")
+                        fee_type = message.get(139, "")
+                        
+                        fee_type_map = {
+                            "4": "Exchange fees",
+                            "7": "Other",
+                            "14": "Security lending"
+                        }
+                        
+                        fee_type_desc = fee_type_map.get(fee_type, f"Unknown ({fee_type})")
+                        logger.info(f"  Fees: {fee_amt} {fee_curr} ({fee_type_desc})")
+                except Exception as e:
+                    logger.debug(f"No fee information: {e}")
             
             if exec_type == "8":
                 reject_reason = message.get(103, "Unknown")
@@ -628,15 +657,58 @@ class CoinbaseFIXClient:
         """
         try:
             trd_type = message.get(828, "")
+            trd_match_id = message.get(880, "")
             exec_id = message.get(FTag.ExecID, "")
+            trade_link_id = message.get(820, "")
             symbol = message.get(FTag.Symbol, "")
             last_qty = message.get(32, "")
             last_px = message.get(31, "")
             side = ""
+            portfolio_id = None
             
             no_sides = int(message.get(552, "0"))
             if no_sides > 0:
                 side = message.get(FTag.Side, "")
+                
+                try:
+                    no_party_ids = int(message.get(453, "0"))
+                    if no_party_ids > 0:
+                        for i in range(no_party_ids):
+                            party_id = message.get(448, "", i)
+                            party_role = message.get(452, "", i)
+                            
+                            if party_role == "24":  # Customer account
+                                portfolio_id = party_id
+                                break
+                            elif party_role == "3":  # Client ID
+                                client_id = party_id
+                except Exception as e:
+                    logger.debug(f"Error extracting party information: {e}")
+            
+            fees = []
+            try:
+                no_misc_fees = int(message.get(136, "0"))
+                if no_misc_fees > 0:
+                    for i in range(no_misc_fees):
+                        fee_amt = message.get(137, "0", i)
+                        fee_curr = message.get(138, "", i)
+                        fee_type = message.get(139, "", i)
+                        
+                        fee_type_map = {
+                            "4": "Exchange fees",
+                            "7": "Other",
+                            "14": "Asset lending"
+                        }
+                        
+                        fee_type_desc = fee_type_map.get(fee_type, f"Unknown ({fee_type})")
+                        
+                        fees.append({
+                            "amount": fee_amt,
+                            "currency": fee_curr,
+                            "type": fee_type_desc
+                        })
+            except Exception as e:
+                logger.debug(f"Error extracting fee information: {e}")
             
             trd_type_map = {
                 "0": "Regular trade",
@@ -645,13 +717,35 @@ class CoinbaseFIXClient:
             
             trd_desc = trd_type_map.get(trd_type, trd_type)
             
-            if trd_type == "3":
+            if trd_type == "3":  # Transfer
                 transfer_reason = message.get(830, "")
-                logger.info(f"Trade Capture Report: {exec_id} {symbol} {side} - "
-                          f"{trd_desc} ({transfer_reason}), Qty: {last_qty}, Px: {last_px}")
+                transfer_reason_map = {
+                    "LIQUIDATED": "Position liquidated",
+                    "ASSIGNED": "Position assigned"
+                }
+                reason_desc = transfer_reason_map.get(transfer_reason, transfer_reason)
+                
+                logger.info(f"Trade Capture Report: {trd_match_id} {symbol} {side} - "
+                          f"{trd_desc} ({reason_desc}), Qty: {last_qty}, Px: {last_px}")
+                
+                if portfolio_id:
+                    logger.info(f"  Portfolio: {portfolio_id}")
+                
+                if fees:
+                    logger.info(f"  Fees: {len(fees)} fee entries")
+                    for fee in fees:
+                        logger.info(f"    {fee['amount']} {fee['currency']} ({fee['type']})")
             else:
-                logger.info(f"Trade Capture Report: {exec_id} {symbol} {side} - "
+                logger.info(f"Trade Capture Report: {trd_match_id} {symbol} {side} - "
                           f"{trd_desc}, Qty: {last_qty}, Px: {last_px}")
+                
+                if portfolio_id:
+                    logger.info(f"  Portfolio: {portfolio_id}")
+                
+                if fees:
+                    logger.info(f"  Fees: {len(fees)} fee entries")
+                    for fee in fees:
+                        logger.info(f"    {fee['amount']} {fee['currency']} ({fee['type']})")
             
             if self.on_trade_capture_report:
                 self.on_trade_capture_report(message)
@@ -738,6 +832,27 @@ class CoinbaseFIXClient:
             symbol = message.get(FTag.Symbol, "")
             quote_status = message.get(297, "")
             
+            bid_px = message.get(132, "")
+            offer_px = message.get(133, "")
+            bid_size = message.get(134, "")
+            offer_size = message.get(135, "")
+            valid_until_time = message.get(62, "")
+            expire_time = message.get(126, "")
+            
+            side = None
+            if quote_status == "19":  # Pending End Trade
+                side = message.get(FTag.Side, "")
+                order_qty = message.get(FTag.OrderQty, "")
+                
+                side_map = {
+                    "1": "Buy",
+                    "2": "Sell"
+                }
+                
+                side_desc = side_map.get(side, side)
+                if side and order_qty:
+                    logger.info(f"  Quote selected for execution: {side_desc} {order_qty}")
+            
             status_map = {
                 "5": "Rejected",
                 "7": "Expired", 
@@ -748,9 +863,26 @@ class CoinbaseFIXClient:
             
             status_desc = status_map.get(quote_status, quote_status)
             
-            if quote_status == "5":
+            if quote_status == "5":  # Rejected
                 text = message.get(FTag.Text, "")
                 logger.warning(f"Quote Status Report: {quote_id} {symbol} - {status_desc}: {text}")
+            elif quote_status == "7":  # Expired
+                logger.warning(f"Quote Status Report: {quote_id} {symbol} - {status_desc}, "
+                             f"Expired at: {expire_time}")
+            elif quote_status == "16":  # Active
+                logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}, "
+                          f"Valid until: {valid_until_time}")
+                
+                if bid_px and bid_size:
+                    logger.info(f"  Bid: {bid_px} x {bid_size}")
+                if offer_px and offer_size:
+                    logger.info(f"  Offer: {offer_px} x {offer_size}")
+            elif quote_status == "17":  # Canceled
+                logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}, "
+                          f"Not selected for execution")
+            elif quote_status == "19":  # Pending End Trade
+                logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}, "
+                          f"Selected for execution")
             else:
                 logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}")
             
