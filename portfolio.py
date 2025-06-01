@@ -101,6 +101,7 @@ class Position:
                 "quantity": quantity,
                 "price": price,
                 "pnl": pnl,
+                "fees": fill.get("fees", []),  # Store fee information
             }
             self.trades.append(trade)
             
@@ -270,6 +271,22 @@ class Portfolio:
             last_qty = float(message.get_field(32, "0"))
             last_px = float(message.get_field(31, "0"))
             
+            fees = []
+            try:
+                no_misc_fees = int(message.get_field(136, "0"))
+                for i in range(no_misc_fees):
+                    fee_amt = float(message.get_field(137, "0"))
+                    fee_curr = message.get_field(138, "")
+                    fee_type = message.get_field(139, "")
+                    
+                    fees.append({
+                        "amount": fee_amt,
+                        "currency": fee_curr,
+                        "type": fee_type,
+                    })
+            except (ValueError, KeyError):
+                logger.debug("No fee information found in execution report")
+            
             side_map = {"1": "BUY", "2": "SELL"}
             side = side_map.get(side, side)
             
@@ -279,6 +296,7 @@ class Portfolio:
                 "quantity": last_qty,
                 "price": last_px,
                 "timestamp": time.time(),
+                "fees": fees,  # Add fee information
             }
             
             self.update_from_fill(fill)
