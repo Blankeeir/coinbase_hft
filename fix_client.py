@@ -79,10 +79,13 @@ class CoinbaseFIXClient:
         self.next_client_order_id = int(time.time())
         self.next_request_id = int(time.time())
         
-    async def connect(self) -> bool:
+    async def connect(self, max_retries: int = None) -> bool:
         """
-        Establish FIX connection and authenticate.
+        Establish FIX connection and authenticate with retry mechanism.
         
+        Args:
+            max_retries: Maximum number of connection attempts (defaults to config.FIX_MAX_RETRIES)
+            
         Returns:
             bool: True if connection and authentication successful
         """
@@ -92,57 +95,99 @@ class CoinbaseFIXClient:
             self.authenticated = True
             return True
             
-        try:
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-            
-            self.protocol = FIXProtocol44()  # Using FIX 4.4 protocol as base for FIX 5.0
-            
-            store_dir = "store"
-            import os
-            os.makedirs(store_dir, exist_ok=True)
-            self.journaler = Journaler(f"{store_dir}/{self.session_type}_session.db")
-            
-            # Create AsyncFIXConnection
-            self.connection = AsyncFIXConnection(
-                protocol=self.protocol,
-                sender_comp_id=self.sender_comp_id,
-                target_comp_id=self.target_comp_id,
-                journaler=self.journaler,
-                host=self.host,
-                port=self.port,
-                heartbeat_period=config.FIX_HEARTBEAT_INTERVAL,
-                logger=logger,
-            )
-            
-            self.connection.on_message = self._on_message
-            
-            await self.connection.connect()
-            self.connected = True
-            logger.info(f"Connected to {self.host}:{self.port} for {self.session_type} session")
-            
-            connection_timeout = 10  # seconds
-            connection_start = time.time()
-            while (self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED and 
-                   time.time() - connection_start < connection_timeout):
-                await asyncio.sleep(0.1)
+        network_timeout = config.FIX_NETWORK_TIMEOUT  # seconds
+        auth_timeout = config.FIX_AUTH_TIMEOUT  # seconds
+        max_retries = max_retries if max_retries is not None else config.FIX_MAX_RETRIES
+        retry_delay = 2  # Initial delay in seconds
+        
+        for attempt in range(1, max_retries + 1):
+            try:
+                if attempt > 1:
+                    logger.info(f"Connection attempt {attempt}/{max_retries} for {self.session_type} session")
                 
-            if self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
-                logger.error(f"Connection timeout: state={self.connection.connection_state}")
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                
+                self.protocol = FIXProtocol44()  # Using FIX 4.4 protocol as base for FIX 5.0
+                
+                store_dir = "store"
+                import os
+                os.makedirs(store_dir, exist_ok=True)
+                self.journaler = Journaler(f"{store_dir}/{self.session_type}_session.db")
+                
+                # Create AsyncFIXConnection
+                self.connection = AsyncFIXConnection(
+                    protocol=self.protocol,
+                    sender_comp_id=self.sender_comp_id,
+                    target_comp_id=self.target_comp_id,
+                    journaler=self.journaler,
+                    host=self.host,
+                    port=self.port,
+                    heartbeat_period=config.FIX_HEARTBEAT_INTERVAL,
+                    logger=logger,
+                )
+                
+                self.connection.on_message = self._on_message
+                
+                await self.connection.connect()
+                self.connected = True
+                logger.info(f"Connected to {self.host}:{self.port} for {self.session_type} session")
+                
+                connection_start = time.time()
+                while (self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED and 
+                       time.time() - connection_start < network_timeout):
+                    await asyncio.sleep(0.1)
+                    
+                if self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
+                    logger.error(f"Network connection timeout: state={self.connection.connection_state}")
+                    self.connected = False
+                    
+                    if attempt < max_retries:
+                        backoff = retry_delay * (2 ** (attempt - 1))
+                        logger.info(f"Retrying in {backoff} seconds...")
+                        await asyncio.sleep(backoff)
+                    continue
+                
+                # Authenticate
+                auth_success = await self._authenticate()
+                if not auth_success:
+                    logger.error("Failed to send authentication request")
+                    if attempt < max_retries:
+                        backoff = retry_delay * (2 ** (attempt - 1))
+                        logger.info(f"Retrying in {backoff} seconds...")
+                        await asyncio.sleep(backoff)
+                    continue
+                
+                auth_start = time.time()
+                while (not self.authenticated and 
+                       time.time() - auth_start < auth_timeout):
+                    await asyncio.sleep(0.1)
+                
+                if not self.authenticated:
+                    logger.error(f"Authentication timeout after {auth_timeout} seconds")
+                    
+                    if attempt < max_retries:
+                        backoff = retry_delay * (2 ** (attempt - 1))
+                        logger.info(f"Retrying in {backoff} seconds...")
+                        await asyncio.sleep(backoff)
+                    continue
+                
+                logger.info(f"Successfully authenticated {self.session_type} session")
+                return True
+                
+            except Exception as e:
+                logger.error(f"Error connecting to FIX server (attempt {attempt}/{max_retries}): {e}")
                 self.connected = False
-                return False
+                self.authenticated = False
                 
-            # Authenticate
-            await self._authenticate()
-            
-            return self.authenticated
-            
-        except Exception as e:
-            logger.error(f"Error connecting to FIX server: {e}")
-            self.connected = False
-            self.authenticated = False
-            return False
+                if attempt < max_retries:
+                    backoff = retry_delay * (2 ** (attempt - 1))
+                    logger.info(f"Retrying in {backoff} seconds...")
+                    await asyncio.sleep(backoff)
+        
+        logger.error(f"Failed to connect after {max_retries} attempts")
+        return False
     
     async def disconnect(self) -> None:
         """Disconnect from FIX server."""
@@ -160,9 +205,13 @@ class CoinbaseFIXClient:
         Authenticate with the FIX server using HMAC-SHA256.
         
         Returns:
-            bool: True if authentication successful
+            bool: True if authentication request was sent successfully
         """
         try:
+            if not all([self.api_key, self.api_secret, self.passphrase]):
+                logger.error("Cannot authenticate: Missing API credentials")
+                return False
+                
             timestamp = str(int(time.time()))
             message = f"{timestamp}A{config.CB_INTX_SENDER_COMPID}COINBASE"
             
@@ -171,14 +220,6 @@ class CoinbaseFIXClient:
                 message.encode('utf-8'),
                 hashlib.sha256
             ).hexdigest()
-            
-            custom_fields = {
-                8013: self.api_key,       # CB API Key
-                8014: signature,          # CB API Sign
-                8015: timestamp,          # CB API Timestamp
-                8016: self.passphrase,    # CB API Passphrase
-                1137: 9,                  # DefaultApplVerID = FIX.5.0SP2
-            }
             
             logon_msg = FIXMessage(FMsg.LOGON)
             logon_msg.set(FTag.EncryptMethod, "0")  # No encryption
@@ -191,19 +232,11 @@ class CoinbaseFIXClient:
             logon_msg.set(8016, self.passphrase)    # CB API Passphrase
             logon_msg.set(1137, "9")                # DefaultApplVerID = FIX.5.0SP2
             
+            logger.debug(f"Sending authentication request for {self.session_type} session")
             await self.connection.send_msg(logon_msg)
             
-            auth_timeout = 10  # seconds
-            auth_start = time.time()
-            while not self.authenticated and time.time() - auth_start < auth_timeout:
-                await asyncio.sleep(0.1)
-            
-            if self.authenticated:
-                logger.info(f"Authenticated {self.session_type} session")
-            else:
-                logger.error(f"Authentication timeout for {self.session_type} session")
-            
-            return self.authenticated
+            # Return True to indicate the authentication request was sent successfully
+            return True
             
         except Exception as e:
             logger.error(f"Authentication error: {e}")
