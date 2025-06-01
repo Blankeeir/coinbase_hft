@@ -477,6 +477,7 @@ class CoinbaseFIXClient:
             ord_status = message.get(FTag.OrdStatus, "")
             symbol = message.get(FTag.Symbol, "")
             side = message.get(FTag.Side, "")
+            ord_type = message.get(FTag.OrdType, "")
             
             exec_type_map = {
                 "0": "New", "1": "Partial Fill", "2": "Fill", 
@@ -489,10 +490,12 @@ class CoinbaseFIXClient:
                 "4": "Canceled", "5": "Replaced", "8": "Rejected", "C": "Expired"
             }
             
+            ord_type_desc = "TPSL" if ord_type == "O" else ""
+            
             exec_desc = exec_type_map.get(exec_type, exec_type)
             status_desc = ord_status_map.get(ord_status, ord_status)
             
-            logger.info(f"ExecutionReport: {clord_id} {symbol} {side} - {exec_desc} ({status_desc})")
+            logger.info(f"ExecutionReport: {clord_id} {symbol} {side} {ord_type_desc} - {exec_desc} ({status_desc})")
             
             if exec_type == "8":
                 reject_reason = message.get(103, "Unknown")
@@ -939,6 +942,8 @@ class CoinbaseFIXClient:
         portfolio_id: Optional[str] = None,
         post_only: bool = False,
         self_trade_prevention: str = "Q",  # Default: Cancel both orders
+        stop_price: Optional[float] = None,  # For TPSL orders
+        stop_limit_price: Optional[float] = None,  # For TPSL orders
     ) -> str:
         """
         Place a new order.
@@ -946,11 +951,16 @@ class CoinbaseFIXClient:
         Args:
             symbol: Trading symbol (e.g., 'BTC-USD')
             side: Order side ('BUY' or 'SELL')
-            order_type: Order type ('LIMIT', 'MARKET', 'STOP', 'STOP_LIMIT')
+            order_type: Order type ('LIMIT', 'MARKET', 'STOP', 'STOP_LIMIT', 'TAKE_PROFIT_STOP_LOSS')
             quantity: Order quantity
-            price: Order price (required for LIMIT and STOP_LIMIT orders)
-            time_in_force: Time in force ('GTC', 'IOC', 'FOK', 'GTD')
+            price: Order price (required for LIMIT, STOP_LIMIT, and TPSL orders)
+            time_in_force: Time in force ('GTC', 'IOC', 'FOK', 'GTD'). TPSL orders only support GTC and GTD.
             order_id: Custom order ID (generated if not provided)
+            portfolio_id: Portfolio UUID (optional)
+            post_only: Post only flag (not supported for TPSL orders)
+            self_trade_prevention: Self trade prevention strategy
+            stop_price: Stop price for TPSL orders (StopPx field)
+            stop_limit_price: Stop limit price for TPSL orders (StopLimitPx field)
             
         Returns:
             str: Client order ID
@@ -1020,8 +1030,32 @@ class CoinbaseFIXClient:
             if order_type.upper() in ["LIMIT", "STOP_LIMIT"] and price is not None:
                 nos.set(FTag.Price, str(price))
             
-            if order_type.upper() in ["STOP", "STOP_LIMIT", "TAKE_PROFIT_STOP_LOSS"] and price is not None:
+            if order_type.upper() in ["STOP", "STOP_LIMIT"] and price is not None:
                 nos.set(FTag.StopPx, str(price))
+            
+            # Handle TPSL orders
+            if order_type.upper() == "TAKE_PROFIT_STOP_LOSS":
+                if time_in_force.upper() not in ["GTC", "GTD"]:
+                    raise ValueError("TPSL orders only support GTC and GTD time in force")
+                
+                if post_only:
+                    raise ValueError("TPSL orders do not support post_only")
+                
+                if price is None or stop_price is None or stop_limit_price is None:
+                    raise ValueError("TPSL orders require price, stop_price, and stop_limit_price")
+                
+                nos.set(FTag.Price, str(price))
+                
+                nos.set(FTag.StopPx, str(stop_price))
+                
+                nos.set(3040, str(stop_limit_price))
+                
+                if fix_side == "2":  # Sell TPSL
+                    if not (price > stop_price > stop_limit_price):
+                        raise ValueError("For Sell TPSL: Price must be > StopPx and StopPx must be > StopLimitPx")
+                else:  # Buy TPSL
+                    if not (price < stop_price < stop_limit_price):
+                        raise ValueError("For Buy TPSL: Price must be < StopPx and StopPx must be < StopLimitPx")
             
             await self.connection.send_msg(nos)
             logger.info(f"Placed {order_type} {side} order for {quantity} {symbol} "
