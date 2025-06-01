@@ -9,6 +9,7 @@ import base64
 import time
 import logging
 import ssl
+import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Callable, Any, Union
 import asyncfix
@@ -509,6 +510,9 @@ class CoinbaseFIXClient:
         price: Optional[float] = None,
         time_in_force: str = "GTC",
         order_id: Optional[str] = None,
+        portfolio_id: Optional[str] = None,
+        post_only: bool = False,
+        self_trade_prevention: str = "Q",  # Default: Cancel both orders
     ) -> str:
         """
         Place a new order.
@@ -535,7 +539,11 @@ class CoinbaseFIXClient:
             return client_order_id
         
         try:
-            client_order_id = order_id or f"{self.sender_comp_id}-{self._get_next_client_order_id()}"
+            # Generate UUID for client order ID if not provided
+            if not order_id:
+                client_order_id = str(uuid.uuid4())
+            else:
+                client_order_id = order_id
             
             side_map = {"BUY": "1", "SELL": "2"}
             fix_side = side_map.get(side.upper())
@@ -547,6 +555,7 @@ class CoinbaseFIXClient:
                 "LIMIT": "2",
                 "STOP": "3",
                 "STOP_LIMIT": "4",
+                "TAKE_PROFIT_STOP_LOSS": "O",  # TP/SL order type
             }
             fix_order_type = order_type_map.get(order_type.upper())
             if not fix_order_type:
@@ -572,10 +581,20 @@ class CoinbaseFIXClient:
             nos.set(FTag.OrderQty, str(quantity))
             nos.set(FTag.TimeInForce, fix_tif)
             
+            if portfolio_id:
+                nos.set(453, "1")  # NoPartyIDs = 1
+                nos.set(448, portfolio_id)  # PartyID = portfolio UUID
+                nos.set(452, "24")  # PartyRole = 24 (Customer account)
+            
+            nos.set(8000, self_trade_prevention)  # SelfTradePreventionStrategy
+            
+            if post_only:
+                nos.set(18, "6")  # ExecInst = 6 (Post only)
+            
             if order_type.upper() in ["LIMIT", "STOP_LIMIT"] and price is not None:
                 nos.set(FTag.Price, str(price))
             
-            if order_type.upper() in ["STOP", "STOP_LIMIT"] and price is not None:
+            if order_type.upper() in ["STOP", "STOP_LIMIT", "TAKE_PROFIT_STOP_LOSS"] and price is not None:
                 nos.set(FTag.StopPx, str(price))
             
             await self.connection.send_msg(nos)
@@ -588,13 +607,14 @@ class CoinbaseFIXClient:
             logger.error(f"Error placing order: {e}")
             return ""
     
-    async def cancel_order(self, client_order_id: str, symbol: str) -> str:
+    async def cancel_order(self, client_order_id: str, symbol: str, portfolio_id: Optional[str] = None) -> str:
         """
         Cancel an existing order.
         
         Args:
             client_order_id: Client order ID of the order to cancel
             symbol: Trading symbol (e.g., 'BTC-USD')
+            portfolio_id: Portfolio UUID (optional)
             
         Returns:
             str: Client order ID of the cancel request
@@ -604,12 +624,13 @@ class CoinbaseFIXClient:
             return ""
             
         if self.test_mode:
-            cancel_client_order_id = f"TEST-C-{self._get_next_client_order_id()}"
+            cancel_client_order_id = str(uuid.uuid4())
             logger.info(f"Test mode: Simulating cancel for order {client_order_id} with cancel ID {cancel_client_order_id}")
             return cancel_client_order_id
         
         try:
-            cancel_client_order_id = f"C-{self._get_next_client_order_id()}"
+            # Generate UUID for cancel order ID
+            cancel_client_order_id = str(uuid.uuid4())
             
             # Create Order Cancel Request message
             ocr = FIXMessage(FMsg.ORDERCANCELREQUEST)
@@ -617,6 +638,11 @@ class CoinbaseFIXClient:
             ocr.set(FTag.ClOrdID, cancel_client_order_id)
             ocr.set(FTag.Symbol, symbol)
             ocr.set(FTag.TransactTime, self._get_utc_timestamp())
+            
+            if portfolio_id:
+                ocr.set(453, "1")  # NoPartyIDs = 1
+                ocr.set(448, portfolio_id)  # PartyID = portfolio UUID
+                ocr.set(452, "24")  # PartyRole = 24 (Customer account)
             
             # Send Order Cancel Request message
             await self.connection.send_msg(ocr)
@@ -628,6 +654,78 @@ class CoinbaseFIXClient:
             logger.error(f"Error canceling order: {e}")
             return ""
     
+    async def modify_order(
+        self,
+        original_client_order_id: str,
+        symbol: str,
+        quantity: Optional[float] = None,
+        price: Optional[float] = None,
+        stop_price: Optional[float] = None,
+        stop_limit_price: Optional[float] = None,
+        portfolio_id: Optional[str] = None,
+    ) -> str:
+        """
+        Modify an existing order using OrderCancelReplaceRequest.
+        
+        Args:
+            original_client_order_id: Client order ID of the order to modify
+            symbol: Trading symbol (e.g., 'BTC-USD')
+            quantity: New order quantity (optional)
+            price: New order price (optional)
+            stop_price: New stop price for stop orders (optional)
+            stop_limit_price: New stop limit price for TP/SL orders (optional)
+            portfolio_id: Portfolio UUID (optional)
+            
+        Returns:
+            str: New client order ID
+        """
+        if not self.authenticated or self.session_type != "order_entry":
+            logger.error("Cannot modify order: Not authenticated or wrong session type")
+            return ""
+            
+        if self.test_mode:
+            new_client_order_id = str(uuid.uuid4())
+            logger.info(f"Test mode: Simulating modify for order {original_client_order_id} with new ID {new_client_order_id}")
+            return new_client_order_id
+        
+        try:
+            # Generate UUID for new client order ID
+            new_client_order_id = str(uuid.uuid4())
+            
+            # Create Order Cancel Replace Request message
+            ocrr = FIXMessage(FMsg.ORDERCANCELREPLACEREQUEST)
+            ocrr.set(FTag.OrigClOrdID, original_client_order_id)
+            ocrr.set(FTag.ClOrdID, new_client_order_id)
+            ocrr.set(FTag.Symbol, symbol)
+            ocrr.set(FTag.TransactTime, self._get_utc_timestamp())
+            
+            if portfolio_id:
+                ocrr.set(453, "1")  # NoPartyIDs = 1
+                ocrr.set(448, portfolio_id)  # PartyID = portfolio UUID
+                ocrr.set(452, "24")  # PartyRole = 24 (Customer account)
+            
+            if quantity is not None:
+                ocrr.set(FTag.OrderQty, str(quantity))
+                
+            if price is not None:
+                ocrr.set(FTag.Price, str(price))
+                
+            if stop_price is not None:
+                ocrr.set(FTag.StopPx, str(stop_price))
+                
+            if stop_limit_price is not None:
+                ocrr.set(3040, str(stop_limit_price))  # StopLimitPx
+            
+            # Send Order Cancel Replace Request message
+            await self.connection.send_msg(ocrr)
+            logger.info(f"Sent modify request for order {original_client_order_id} with new ID {new_client_order_id}")
+            
+            return new_client_order_id
+            
+        except Exception as e:
+            logger.error(f"Error modifying order: {e}")
+            return ""
+            
     async def request_positions(self) -> bool:
         """
         Request current positions.
@@ -660,15 +758,14 @@ class CoinbaseFIXClient:
             logger.error(f"Error requesting positions: {e}")
             return False
     
-    def _get_next_client_order_id(self) -> int:
+    def _get_next_client_order_id(self) -> str:
         """
         Generate and return the next client order ID.
         
         Returns:
-            int: Next client order ID
+            str: Next client order ID in UUID format
         """
-        self.next_client_order_id += 1
-        return self.next_client_order_id
+        return str(uuid.uuid4())
     
     def _get_next_request_id(self) -> int:
         """
