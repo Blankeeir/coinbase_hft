@@ -117,3 +117,68 @@
 2025-06-01 18:50:35,095 - test_all_handlers - INFO - Quote sent with ID: 40b65f15-cc3c-4215-8333-3d5f15300469
 2025-06-01 18:50:35,095 - test_all_handlers - INFO - 
 === All tests completed successfully ===
+2025-06-01 19:20:18,413 - coinbase_hft.strategy - INFO - Created new model
+2025-06-01 19:20:18,414 - coinbase_hft.main - INFO - Starting HFT bot for BTC-PERP
+2025-06-01 19:20:18,459 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 19:20:28,500 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 19:20:28,500 - coinbase_hft.fix_client - INFO - Retrying in 2 seconds...
+2025-06-01 19:20:30,501 - coinbase_hft.fix_client - INFO - Connection attempt 2/3 for market_data session
+2025-06-01 19:20:30,529 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 19:20:40,572 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 19:20:40,572 - coinbase_hft.fix_client - INFO - Retrying in 4 seconds...
+2025-06-01 19:20:44,573 - coinbase_hft.fix_client - INFO - Connection attempt 3/3 for market_data session
+2025-06-01 19:20:44,606 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 19:20:53,658 - coinbase_hft.main - INFO - Received signal 2, shutting down...
+2025-06-01 19:20:54,650 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 19:20:54,650 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
+2025-06-01 19:20:54,651 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-01 19:20:54,652 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-01 19:21:57,729 - test_market_data - INFO - 
+=== Testing SecurityListRequest ===
+2025-06-01 19:21:57,730 - coinbase_hft.fix_client - INFO - SecurityListRequest: ID=e4072c16-91f2-4f01-ab23-0ebbb112ce7f, Type=0
+2025-06-01 19:21:57,730 - test_market_data - INFO - 
+=== Testing SecurityList ===
+2025-06-01 19:21:57,731 - coinbase_hft.fix_client - INFO - SecurityList: ID=1fdf902f-8af4-417d-824e-48caa179f110, Result=0, Securities=2
+2025-06-01 19:21:57,731 - test_market_data - INFO - Security list callback triggered with 2 securities
+2025-06-01 19:21:57,731 - test_market_data - INFO -   Security 1: BTC-USD (FXSPOT)
+2025-06-01 19:21:57,731 - test_market_data - INFO -   Security 2: ETH-USD (FXSPOT)
+2025-06-01 19:21:57,731 - test_market_data - INFO - 
+=== Testing SecurityDefinition ===
+2025-06-01 19:21:57,731 - coinbase_hft.fix_client - INFO - SecurityDefinition: SOL-USD - A
+2025-06-01 19:21:57,731 - test_market_data - INFO - Security definition callback triggered for SOL-USD
+2025-06-01 19:21:57,732 - test_market_data - INFO -   Action: A, Type: FXSPOT
+2025-06-01 19:21:57,732 - coinbase_hft.fix_client - INFO - SecurityDefinition: SOL-USD - M
+2025-06-01 19:21:57,732 - test_market_data - INFO - Security definition callback triggered for SOL-USD
+2025-06-01 19:21:57,732 - test_market_data - INFO -   Action: M, Type: 
+2025-06-01 19:21:57,732 - test_market_data - INFO - 
+=== Testing MarketDataRequest ===
+2025-06-01 19:21:57,732 - coinbase_hft.fix_client - INFO - MarketDataRequest: ID=1e99ee94-9536-4e7c-af30-9276467b16e9, Type=1, Depth=10, Symbols=2
+2025-06-01 19:21:57,732 - test_market_data - INFO - 
+=== Testing MarketDataRequestReject ===
+2025-06-01 19:21:57,732 - coinbase_hft.fix_client - WARNING - MarketDataRequestReject: ID=655d1c25-c4d4-40c0-9d72-798427035229, Reason=Unknown symbol, Text=Symbol XYZ-USD not found
+2025-06-01 19:21:57,733 - test_market_data - INFO - Market data request reject callback triggered
+2025-06-01 19:21:57,733 - test_market_data - INFO - 
+=== Testing Send Methods ===
+2025-06-01 19:21:57,733 - coinbase_hft.fix_client - INFO - Test mode: Would send message 320=1748805718|559=0
+2025-06-01 19:21:57,733 - coinbase_hft.fix_client - INFO - SecurityListRequest sent: ID=1748805718
+2025-06-01 19:21:57,733 - test_market_data - INFO - SecurityListRequest sent with ID: 1748805718
+2025-06-01 19:21:57,733 - coinbase_hft.fix_client - INFO - Test mode: Would send message 262=1748805719|263=1|264=10|146=2|55=ETH-USD|167=FXSPOT
+2025-06-01 19:21:57,733 - coinbase_hft.fix_client - INFO - MarketDataRequest sent: ID=1748805719, Symbols=['BTC-USD', 'ETH-USD']
+2025-06-01 19:21:57,734 - test_market_data - INFO - MarketDataRequest sent with ID: 1748805719
+2025-06-01 19:21:57,734 - test_market_data - INFO - 
+=== All market data tests completed successfully ===
+2025-06-01 19:29:13,939 - coinbase_hft.strategy - INFO - Created new model
+2025-06-01 19:29:13,941 - coinbase_hft.main - INFO - Starting HFT bot for BTC-PERP
+2025-06-01 19:29:13,982 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 19:29:24,024 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 19:29:24,024 - coinbase_hft.fix_client - INFO - Retrying in 2 seconds...
+2025-06-01 19:29:26,025 - coinbase_hft.fix_client - INFO - Connection attempt 2/3 for market_data session
+2025-06-01 19:29:26,054 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 19:29:36,099 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 19:29:36,100 - coinbase_hft.fix_client - INFO - Retrying in 4 seconds...
+2025-06-01 19:29:40,101 - coinbase_hft.fix_client - INFO - Connection attempt 3/3 for market_data session
+2025-06-01 19:29:40,130 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 19:29:50,178 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 19:29:50,178 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
+2025-06-01 19:29:50,180 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-01 19:29:50,180 - coinbase_hft.main - ERROR - Failed to connect, exiting

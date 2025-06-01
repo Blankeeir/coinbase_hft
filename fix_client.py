@@ -146,7 +146,8 @@ class CoinbaseFIXClient:
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
-                ssl_context.set_ciphers('ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384')
+                # ssl_context.set_ciphers('ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384')
+                ssl_context.set_ciphers('ECDHE-RSA-AES128-GCM-SHA256')
                 
                 self.protocol = FIXProtocol44()  # Using FIX 4.4 protocol as base for FIX 5.0
                 
