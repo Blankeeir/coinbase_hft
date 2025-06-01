@@ -17,6 +17,7 @@ from asyncfix.protocol import FIXProtocolBase, FIXProtocol44
 from asyncfix.session import FIXSession
 from asyncfix.connection import AsyncFIXConnection
 from asyncfix.journaler import Journaler
+from asyncfix import FTag, FMsg
 
 import config
 
@@ -159,12 +160,18 @@ class CoinbaseFIXClient:
                 1137: 9,                  # DefaultApplVerID = FIX.5.0SP2
             }
             
-            await self.connection.send_logon(
-                encrypt_method=0,  # No encryption
-                heartbeat_interval=config.FIX_HEARTBEAT_INTERVAL,
-                reset_seq_num=True,
-                custom_fields=custom_fields
-            )
+            logon_msg = FIXMessage(FMsg.LOGON)
+            logon_msg.set_field(FTag.EncryptMethod, "0")  # No encryption
+            logon_msg.set_field(FTag.HeartBtInt, str(config.FIX_HEARTBEAT_INTERVAL))
+            logon_msg.set_field(FTag.ResetSeqNumFlag, "Y")  # Reset sequence numbers
+            
+            logon_msg.set_field(8013, self.api_key)       # CB API Key
+            logon_msg.set_field(8014, signature)          # CB API Sign
+            logon_msg.set_field(8015, timestamp)          # CB API Timestamp
+            logon_msg.set_field(8016, self.passphrase)    # CB API Passphrase
+            logon_msg.set_field(1137, "9")                # DefaultApplVerID = FIX.5.0SP2
+            
+            await self.connection.send_message(logon_msg)
             
             auth_timeout = 10  # seconds
             auth_start = time.time()
@@ -190,47 +197,47 @@ class CoinbaseFIXClient:
             message: FIX message
         """
         try:
-            msg_type = message.get_field(35)
+            msg_type = message.get(FTag.MsgType)
             
-            if msg_type == "A":
+            if msg_type == FMsg.LOGON:
                 self.authenticated = True
                 logger.info(f"Logon successful for {self.session_type} session")
                 return
             
-            if msg_type == "5":
-                text = message.get_field(58, "No reason provided")
+            if msg_type == FMsg.LOGOUT:
+                text = message.get(FTag.Text, "No reason provided")
                 logger.warning(f"Received Logout: {text}")
                 self.authenticated = False
                 return
             
-            if msg_type == "0":
+            if msg_type == FMsg.HEARTBEAT:
                 return  # Silently process heartbeats
             
-            if msg_type == "1":
+            if msg_type == FMsg.TESTREQUEST:
                 self._handle_test_request(message)
                 return
             
-            if msg_type == "3":
+            if msg_type == FMsg.REJECT:
                 self._handle_reject(message)
                 return
             
-            if msg_type == "j":
+            if msg_type == FMsg.BUSINESSMESSAGEREJECT:
                 self._handle_business_reject(message)
                 return
             
-            if msg_type == "8" and self.on_execution_report:
+            if msg_type == FMsg.EXECUTIONREPORT and self.on_execution_report:
                 self.on_execution_report(message)
                 return
             
-            if msg_type == "W" and self.on_market_data:
+            if msg_type == FMsg.MARKETDATASNAPSHOTFULLREFRESH and self.on_market_data:
                 self.on_market_data(message)
                 return
             
-            if msg_type == "X" and self.on_market_data:
+            if msg_type == FMsg.MARKETDATAINCREMENTALREFRESH and self.on_market_data:
                 self.on_market_data(message)
                 return
             
-            if msg_type == "AP" and self.on_position_report:
+            if msg_type == FMsg.POSITIONREPORT and self.on_position_report:
                 self.on_position_report(message)
                 return
             
@@ -247,12 +254,11 @@ class CoinbaseFIXClient:
             message: Test Request message
         """
         try:
-            test_req_id = message.get_field(112, "")
+            test_req_id = message.get(FTag.TestReqID, "")
             
-            heartbeat = FIXMessage()
-            heartbeat.set_field(35, "0")  # MsgType = Heartbeat
+            heartbeat = FIXMessage(FMsg.HEARTBEAT)
             if test_req_id:
-                heartbeat.set_field(112, test_req_id)  # TestReqID
+                heartbeat.set_field(FTag.TestReqID, test_req_id)
             
             asyncio.create_task(self.connection.send_message(heartbeat))
             
@@ -267,10 +273,10 @@ class CoinbaseFIXClient:
             message: Reject message
         """
         try:
-            ref_seq_num = message.get_field(45, "Unknown")
-            ref_tag_id = message.get_field(371, "Unknown")
-            ref_msg_type = message.get_field(372, "Unknown")
-            reason = message.get_field(373, "No reason provided")
+            ref_seq_num = message.get(FTag.RefSeqNum, "Unknown")
+            ref_tag_id = message.get(FTag.RefTagID, "Unknown")
+            ref_msg_type = message.get(FTag.RefMsgType, "Unknown")
+            reason = message.get(FTag.SessionRejectReason, "No reason provided")
             
             logger.warning(f"Session level Reject: RefSeqNum={ref_seq_num}, "
                           f"RefTagID={ref_tag_id}, RefMsgType={ref_msg_type}, "
@@ -287,10 +293,10 @@ class CoinbaseFIXClient:
             message: Business Message Reject
         """
         try:
-            ref_seq_num = message.get_field(45, "Unknown")
-            ref_msg_type = message.get_field(372, "Unknown")
-            business_reject_reason = message.get_field(380, "0")
-            text = message.get_field(58, "No reason provided")
+            ref_seq_num = message.get(FTag.RefSeqNum, "Unknown")
+            ref_msg_type = message.get(FTag.RefMsgType, "Unknown")
+            business_reject_reason = message.get(FTag.BusinessRejectReason, "0")
+            text = message.get(FTag.Text, "No reason provided")
             
             logger.warning(f"Business Reject: RefSeqNum={ref_seq_num}, "
                           f"RefMsgType={ref_msg_type}, BusinessRejectReason={business_reject_reason}, "
@@ -317,22 +323,21 @@ class CoinbaseFIXClient:
         try:
             req_id = str(self._get_next_request_id())
             
-            mdr = FIXMessage()
-            mdr.set_field(35, "V")  # MsgType = Market Data Request
-            mdr.set_field(262, req_id)  # MDReqID
-            mdr.set_field(263, 1)  # SubscriptionRequestType = Snapshot + Updates
-            mdr.set_field(264, 0)  # MarketDepth = Full Book
-            mdr.set_field(265, 0)  # MDUpdateType = Full Refresh
-            mdr.set_field(266, 1)  # AggregatedBook = Yes
+            mdr = FIXMessage(FMsg.MARKETDATAREQUEST)
+            mdr.set_field(FTag.MDReqID, req_id)
+            mdr.set_field(FTag.SubscriptionRequestType, "1")  # Snapshot + Updates
+            mdr.set_field(FTag.MarketDepth, "0")  # Full Book
+            mdr.set_field(FTag.MDUpdateType, "0")  # Full Refresh
+            mdr.set_field(FTag.AggregatedBook, "1")  # Yes
             
-            mdr.set_field(267, 2)  # NoMDEntryTypes = 2
+            mdr.set_field(FTag.NoMDEntryTypes, "2")
             
-            mdr.set_field(269, "0")  # MDEntryType = Bid
+            mdr.set_field(FTag.MDEntryType, "0")  # Bid
             
-            mdr.set_field(269, "1")  # MDEntryType = Offer
+            mdr.set_field(FTag.MDEntryType, "1")  # Offer
             
-            mdr.set_field(146, 1)  # NoRelatedSym = 1
-            mdr.set_field(55, symbol)  # Symbol
+            mdr.set_field(FTag.NoRelatedSym, "1")
+            mdr.set_field(FTag.Symbol, symbol)
             
             await self.connection.send_message(mdr)
             logger.info(f"Sent market data subscription request for {symbol}")
@@ -359,13 +364,12 @@ class CoinbaseFIXClient:
         try:
             req_id = str(self._get_next_request_id())
             
-            mdr = FIXMessage()
-            mdr.set_field(35, "V")  # MsgType = Market Data Request
-            mdr.set_field(262, req_id)  # MDReqID
-            mdr.set_field(263, 2)  # SubscriptionRequestType = Disable previous subscription
+            mdr = FIXMessage(FMsg.MARKETDATAREQUEST)
+            mdr.set_field(FTag.MDReqID, req_id)
+            mdr.set_field(FTag.SubscriptionRequestType, "2")  # Disable previous subscription
             
-            mdr.set_field(146, 1)  # NoRelatedSym = 1
-            mdr.set_field(55, symbol)  # Symbol
+            mdr.set_field(FTag.NoRelatedSym, "1")
+            mdr.set_field(FTag.Symbol, symbol)
             
             # Send Market Data Request
             await self.connection.send_message(mdr)
@@ -434,21 +438,20 @@ class CoinbaseFIXClient:
             if not fix_tif:
                 raise ValueError(f"Invalid time in force: {time_in_force}")
             
-            nos = FIXMessage()
-            nos.set_field(35, "D")  # MsgType = New Order Single
-            nos.set_field(11, client_order_id)  # ClOrdID
-            nos.set_field(55, symbol)  # Symbol
-            nos.set_field(54, fix_side)  # Side
-            nos.set_field(60, self._get_utc_timestamp())  # TransactTime
-            nos.set_field(40, fix_order_type)  # OrdType
-            nos.set_field(38, str(quantity))  # OrderQty
-            nos.set_field(59, fix_tif)  # TimeInForce
+            nos = FIXMessage(FMsg.NEWORDERSINGLE)
+            nos.set_field(FTag.ClOrdID, client_order_id)
+            nos.set_field(FTag.Symbol, symbol)
+            nos.set_field(FTag.Side, fix_side)
+            nos.set_field(FTag.TransactTime, self._get_utc_timestamp())
+            nos.set_field(FTag.OrdType, fix_order_type)
+            nos.set_field(FTag.OrderQty, str(quantity))
+            nos.set_field(FTag.TimeInForce, fix_tif)
             
             if order_type.upper() in ["LIMIT", "STOP_LIMIT"] and price is not None:
-                nos.set_field(44, str(price))  # Price
+                nos.set_field(FTag.Price, str(price))
             
             if order_type.upper() in ["STOP", "STOP_LIMIT"] and price is not None:
-                nos.set_field(99, str(price))  # StopPx
+                nos.set_field(FTag.StopPx, str(price))
             
             await self.connection.send_message(nos)
             logger.info(f"Placed {order_type} {side} order for {quantity} {symbol} "
@@ -479,12 +482,11 @@ class CoinbaseFIXClient:
             cancel_client_order_id = f"C-{self._get_next_client_order_id()}"
             
             # Create Order Cancel Request message
-            ocr = FIXMessage()
-            ocr.set_field(35, "F")  # MsgType = Order Cancel Request
-            ocr.set_field(41, client_order_id)  # OrigClOrdID
-            ocr.set_field(11, cancel_client_order_id)  # ClOrdID
-            ocr.set_field(55, symbol)  # Symbol
-            ocr.set_field(60, self._get_utc_timestamp())  # TransactTime
+            ocr = FIXMessage(FMsg.ORDERCANCELREQUEST)
+            ocr.set_field(FTag.OrigClOrdID, client_order_id)
+            ocr.set_field(FTag.ClOrdID, cancel_client_order_id)
+            ocr.set_field(FTag.Symbol, symbol)
+            ocr.set_field(FTag.TransactTime, self._get_utc_timestamp())
             
             # Send Order Cancel Request message
             await self.connection.send_message(ocr)
@@ -510,12 +512,11 @@ class CoinbaseFIXClient:
         try:
             req_id = str(self._get_next_request_id())
             
-            rfp = FIXMessage()
-            rfp.set_field(35, "AN")  # MsgType = Request For Positions
-            rfp.set_field(710, req_id)  # PosReqID
-            rfp.set_field(724, "0")  # PosReqType = Positions
-            rfp.set_field(263, "1")  # SubscriptionRequestType = Snapshot
-            rfp.set_field(60, self._get_utc_timestamp())  # TransactTime
+            rfp = FIXMessage(FMsg.REQUESTFORPOSITIONS)
+            rfp.set_field(FTag.PosReqID, req_id)
+            rfp.set_field(FTag.PosReqType, "0")  # Positions
+            rfp.set_field(FTag.SubscriptionRequestType, "1")  # Snapshot
+            rfp.set_field(FTag.TransactTime, self._get_utc_timestamp())
             
             await self.connection.send_message(rfp)
             logger.info("Sent position request")
