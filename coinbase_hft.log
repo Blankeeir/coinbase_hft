@@ -28,3 +28,56 @@
 2025-06-01 16:55:34,600 - coinbase_hft.fix_client - ERROR - Connection timeout: state=1
 2025-06-01 16:55:34,601 - coinbase_hft.main - ERROR - Failed to connect market data client
 2025-06-01 16:55:34,602 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-01 17:41:43,629 - coinbase_hft.strategy - INFO - Created new model
+2025-06-01 17:41:43,630 - coinbase_hft.main - INFO - Starting HFT bot for BTC-USD
+2025-06-01 17:41:43,657 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 17:41:53,691 - coinbase_hft.fix_client - ERROR - Connection timeout: state=1
+2025-06-01 17:41:53,692 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-01 17:41:53,692 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-01 17:42:46,767 - coinbase_hft.strategy - INFO - Created new model
+2025-06-01 17:42:46,768 - coinbase_hft.main - INFO - Starting HFT bot for BTC-USD
+2025-06-01 17:42:46,799 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 17:42:56,836 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:42:56,837 - coinbase_hft.fix_client - INFO - Retrying in 2 seconds...
+2025-06-01 17:42:58,839 - coinbase_hft.fix_client - INFO - Connection attempt 2/3 for market_data session
+2025-06-01 17:42:58,867 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 17:43:08,911 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:43:08,911 - coinbase_hft.fix_client - INFO - Retrying in 4 seconds...
+2025-06-01 17:43:12,913 - coinbase_hft.fix_client - INFO - Connection attempt 3/3 for market_data session
+2025-06-01 17:43:12,942 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 17:43:22,988 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:43:22,988 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
+2025-06-01 17:43:22,990 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-01 17:43:22,990 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-01 17:45:43,691 - coinbase_hft.strategy - INFO - Created new model
+2025-06-01 17:45:43,691 - coinbase_hft.main - INFO - Starting HFT bot for BTC-USD
+2025-06-01 17:45:43,725 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 17:45:53,761 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:45:53,762 - coinbase_hft.fix_client - INFO - Retrying in 2 seconds...
+2025-06-01 17:45:55,763 - coinbase_hft.fix_client - INFO - Connection attempt 2/3 for market_data session
+2025-06-01 17:45:55,791 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 17:45:58,811 - coinbase_hft.main - INFO - Received signal 2, shutting down...
+2025-06-01 17:45:59,021 - coinbase_hft.main - INFO - Received signal 2, shutting down...
+2025-06-01 17:46:05,834 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:46:05,835 - coinbase_hft.fix_client - INFO - Retrying in 4 seconds...
+2025-06-01 17:46:09,835 - coinbase_hft.fix_client - INFO - Connection attempt 3/3 for market_data session
+2025-06-01 17:46:09,867 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 17:46:19,911 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:46:19,912 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
+2025-06-01 17:46:19,913 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-01 17:46:19,913 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-01 17:46:45,731 - coinbase_hft.strategy - INFO - Created new model
+2025-06-01 17:46:45,731 - coinbase_hft.main - INFO - Starting HFT bot for BTC-USD
+2025-06-01 17:46:45,764 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 17:46:55,805 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:46:55,805 - coinbase_hft.fix_client - INFO - Retrying in 2 seconds...
+2025-06-01 17:46:57,806 - coinbase_hft.fix_client - INFO - Connection attempt 2/3 for market_data session
+2025-06-01 17:46:57,835 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 17:47:07,876 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:47:07,876 - coinbase_hft.fix_client - INFO - Retrying in 4 seconds...
+2025-06-01 17:47:11,878 - coinbase_hft.fix_client - INFO - Connection attempt 3/3 for market_data session
+2025-06-01 17:47:11,910 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-01 17:47:21,955 - coinbase_hft.fix_client - ERROR - Network connection timeout: state=1
+2025-06-01 17:47:21,956 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
+2025-06-01 17:47:21,957 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-01 17:47:21,957 - coinbase_hft.main - ERROR - Failed to connect, exiting

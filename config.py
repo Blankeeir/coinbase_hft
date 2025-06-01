@@ -14,7 +14,7 @@ CB_INTX_API_SECRET = os.getenv("CB_INTX_API_SECRET", "")
 CB_INTX_PASSPHRASE = os.getenv("CB_INTX_PASSPHRASE", "")
 CB_INTX_SENDER_COMPID = os.getenv("CB_INTX_SENDER_COMPID", "")
 
-ENVIRONMENT = os.getenv("ENVIRONMENT", "sandbox").lower()  # 'sandbox' or 'production'
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()  # 'sandbox' or 'production'
 
 if ENVIRONMENT == "sandbox":
     FIX_ORDER_ENTRY_HOST = "n5e2.coinbase.com"
