@@ -339,6 +339,7 @@ class CoinbaseFIXClient:
                 return
             
             if msg_type == FMsg.EXECUTIONREPORT and self.on_execution_report:
+                self._log_execution_report(message)
                 self.on_execution_report(message)
                 return
             
@@ -417,6 +418,44 @@ class CoinbaseFIXClient:
             
         except Exception as e:
             logger.error(f"Error handling business reject: {e}")
+    
+    def _log_execution_report(self, message: FIXMessage) -> None:
+        """
+        Log execution report details for debugging.
+        
+        Args:
+            message: FIX execution report message
+        """
+        try:
+            clord_id = message.get(FTag.ClOrdID, "")
+            exec_type = message.get(150, "")
+            ord_status = message.get(FTag.OrdStatus, "")
+            symbol = message.get(FTag.Symbol, "")
+            side = message.get(FTag.Side, "")
+            
+            exec_type_map = {
+                "0": "New", "1": "Partial Fill", "2": "Fill", 
+                "4": "Canceled", "5": "Replaced", "8": "Rejected",
+                "C": "Expired", "L": "Stop Triggered"
+            }
+            
+            ord_status_map = {
+                "0": "New", "1": "Partially Filled", "2": "Filled",
+                "4": "Canceled", "5": "Replaced", "8": "Rejected", "C": "Expired"
+            }
+            
+            exec_desc = exec_type_map.get(exec_type, exec_type)
+            status_desc = ord_status_map.get(ord_status, ord_status)
+            
+            logger.info(f"ExecutionReport: {clord_id} {symbol} {side} - {exec_desc} ({status_desc})")
+            
+            if exec_type == "8":
+                reject_reason = message.get(103, "Unknown")
+                text = message.get(FTag.Text, "")
+                logger.warning(f"Order rejected: {reject_reason} - {text}")
+            
+        except Exception as e:
+            logger.error(f"Error logging execution report: {e}")
     
     async def subscribe_market_data(self, symbol: str, depth: int = 10) -> bool:
         """
@@ -724,6 +763,63 @@ class CoinbaseFIXClient:
             
         except Exception as e:
             logger.error(f"Error modifying order: {e}")
+            return ""
+            
+    async def mass_cancel_orders(
+        self,
+        symbol: Optional[str] = None,
+        side: Optional[str] = None,
+        portfolio_id: Optional[str] = None,
+    ) -> str:
+        """
+        Cancel multiple orders using OrderMassCancelRequest.
+        
+        Args:
+            symbol: Trading symbol (e.g., 'BTC-USD'). If not provided, cancels all symbols.
+            side: Order side ('BUY' or 'SELL'). If not provided, cancels all sides.
+            portfolio_id: Portfolio UUID (optional)
+            
+        Returns:
+            str: Client order ID for the mass cancel request
+        """
+        if not self.authenticated or self.session_type != "order_entry":
+            logger.error("Cannot mass cancel orders: Not authenticated or wrong session type")
+            return ""
+            
+        if self.test_mode:
+            client_order_id = str(uuid.uuid4())
+            logger.info(f"Test mode: Simulating mass cancel with ID {client_order_id}")
+            return client_order_id
+        
+        try:
+            # Generate UUID for client order ID
+            client_order_id = str(uuid.uuid4())
+            
+            # Create Order Mass Cancel Request message
+            omcr = FIXMessage("q")  # OrderMassCancelRequest msgtype
+            omcr.set(FTag.ClOrdID, client_order_id)
+            omcr.set(FTag.TransactTime, self._get_utc_timestamp())
+            
+            if side:
+                fix_side = "1" if side.upper() == "BUY" else "2"
+                omcr.set(FTag.Side, fix_side)
+            
+            if symbol:
+                omcr.set(FTag.Symbol, symbol)
+            
+            if portfolio_id:
+                omcr.set(453, "1")  # NoPartyIDs = 1
+                omcr.set(448, portfolio_id)  # PartyID = portfolio UUID
+                omcr.set(452, "24")  # PartyRole = 24 (Customer account)
+            
+            # Send Order Mass Cancel Request message
+            await self.connection.send_msg(omcr)
+            logger.info(f"Sent mass cancel request with ID {client_order_id}")
+            
+            return client_order_id
+            
+        except Exception as e:
+            logger.error(f"Error sending mass cancel request: {e}")
             return ""
             
     async def request_positions(self) -> bool:
