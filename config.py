@@ -26,12 +26,12 @@ if ENVIRONMENT == "sandbox":
     REST_API_URL = "https://api-n5e1.coinbase.com"
     WS_API_URL = "wss://ws-md.n5e2.coinbase.com"
 else:  # production
-    FIX_ORDER_ENTRY_HOST = "fix.exchange.coinbase.com"
-    FIX_ORDER_ENTRY_PORT = 4198
-    FIX_MARKET_DATA_HOST = "fix-md.exchange.coinbase.com"
-    FIX_MARKET_DATA_PORT = 4199
-    FIX_DROP_COPY_HOST = "fix-dc.exchange.coinbase.com"
-    FIX_DROP_COPY_PORT = 4200
+    FIX_ORDER_ENTRY_HOST = "fix.international.coinbase.com"
+    FIX_ORDER_ENTRY_PORT = 6110
+    FIX_MARKET_DATA_HOST = "fix.international.coinbase.com"
+    FIX_MARKET_DATA_PORT = 6120
+    FIX_DROP_COPY_HOST = "fix.international.coinbase.com"
+    FIX_DROP_COPY_PORT = 6130
     REST_API_URL = "https://api.exchange.coinbase.com"
     WS_API_URL = "wss://ws-feed.exchange.coinbase.com"
 
@@ -39,6 +39,9 @@ FIX_VERSION = "FIXT.1.1"
 FIX_APP_VERSION = "FIX.5.0SP2"
 FIX_TARGET_COMPID = "COINBASE"
 FIX_HEARTBEAT_INTERVAL = 30  # seconds
+FIX_NETWORK_TIMEOUT = int(os.getenv("FIX_NETWORK_TIMEOUT", "10"))  # seconds
+FIX_AUTH_TIMEOUT = int(os.getenv("FIX_AUTH_TIMEOUT", "20"))  # seconds
+FIX_MAX_RETRIES = int(os.getenv("FIX_MAX_RETRIES", "3"))  # retry attempts
 
 TRADING_SYMBOL = os.getenv("TRADING_SYMBOL", "BTC-USD")
 POSITION_SIZE = float(os.getenv("POSITION_SIZE", "0.01"))  # BTC
