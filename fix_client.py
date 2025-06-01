@@ -133,7 +133,7 @@ class CoinbaseFIXClient:
             self.authenticated = True
             return True
             
-        network_timeout = config.FIX_NETWORK_TIMEOUT  # seconds
+        network_timeout = 30  # seconds, increased from 10s per Coinbase recommendation
         auth_timeout = config.FIX_AUTH_TIMEOUT  # seconds
         max_retries = max_retries if max_retries is not None else config.FIX_MAX_RETRIES
         retry_delay = 2  # Initial delay in seconds
@@ -146,8 +146,6 @@ class CoinbaseFIXClient:
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
-                # ssl_context.set_ciphers('ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384')
-                ssl_context.set_ciphers('ECDHE-RSA-AES128-GCM-SHA256')
                 
                 self.protocol = FIXProtocol44()  # Using FIX 4.4 protocol as base for FIX 5.0
                 
@@ -206,23 +204,9 @@ class CoinbaseFIXClient:
                     logger.info(f"[TEST MODE] Simulated successful authentication for {self.session_type} session")
                     return True
                 else:
-                    connection_start = time.time()
-                    while (self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED and 
-                           time.time() - connection_start < network_timeout):
-                        await asyncio.sleep(0.1)
-                        
-                    if self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
-                        logger.error(f"Network connection timeout: state={self.connection.connection_state}")
-                        self.connected = False
-                        
-                        if attempt < max_retries:
-                            backoff = retry_delay * (2 ** (attempt - 1))
-                            logger.info(f"Retrying in {backoff} seconds...")
-                            await asyncio.sleep(backoff)
-                        continue
-                
-                # Authenticate
-                auth_success = await self._authenticate()
+                    # Authenticate immediately after socket connection
+                    logger.info(f"Sending Logon message immediately after socket connection")
+                    auth_success = await self._authenticate()
                 if not auth_success:
                     logger.error("Failed to send authentication request")
                     if attempt < max_retries:
