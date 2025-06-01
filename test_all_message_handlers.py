@@ -36,7 +36,7 @@ async def test_all_handlers():
     mass_cancel_report = FIXMessage("r")
     mass_cancel_report.set(FTag.ClOrdID, str(uuid.uuid4()))
     mass_cancel_report.set(1369, "12345")  # MassActionReportID
-    mass_cancel_report.set(FTag.Symbol, "BTC-USD")
+    mass_cancel_report.set(FTag.Symbol, "BTC-PERP")
     mass_cancel_report.set(FTag.Side, "1")  # Buy
     mass_cancel_report.set(531, "7")  # Cancel All Orders
     mass_cancel_report.set(533, "5")  # Total affected orders
@@ -62,7 +62,7 @@ async def test_all_handlers():
     trade_capture = FIXMessage("AE")
     trade_capture.set(828, "0")  # Regular trade
     trade_capture.set(FTag.ExecID, str(uuid.uuid4()))
-    trade_capture.set(FTag.Symbol, "BTC-USD")
+    trade_capture.set(FTag.Symbol, "BTC-PERP")
     trade_capture.set(32, "0.1")  # LastQty
     trade_capture.set(31, "50000")  # LastPx
     trade_capture.set(552, "1")  # NoSides
@@ -73,7 +73,7 @@ async def test_all_handlers():
     transfer_capture.set(828, "3")  # Transfer
     transfer_capture.set(830, "LIQUIDATED")  # TransferReason
     transfer_capture.set(FTag.ExecID, str(uuid.uuid4()))
-    transfer_capture.set(FTag.Symbol, "BTC-USD")
+    transfer_capture.set(FTag.Symbol, "BTC-PERP")
     transfer_capture.set(32, "0.5")  # LastQty
     transfer_capture.set(31, "49000")  # LastPx
     transfer_capture.set(552, "1")  # NoSides
@@ -88,7 +88,7 @@ async def test_all_handlers():
     prefill_report = FIXMessage("F8")
     prefill_report.set(FTag.ClOrdID, str(uuid.uuid4()))
     prefill_report.set(FTag.OrderID, "12345")
-    prefill_report.set(FTag.Symbol, "BTC-USD")
+    prefill_report.set(FTag.Symbol, "BTC-PERP")
     prefill_report.set(FTag.Side, "1")  # Buy
     prefill_report.set(32, "0.1")  # LastQty
     prefill_report.set(31, "50000")  # LastPx
@@ -98,7 +98,7 @@ async def test_all_handlers():
     logger.info("\n=== Testing Quote Request ===")
     quote_request = FIXMessage("R")
     quote_request.set(131, str(uuid.uuid4()))  # QuoteReqID
-    quote_request.set(FTag.Symbol, "BTC-USD")
+    quote_request.set(FTag.Symbol, "BTC-PERP")
     quote_request.set(FTag.OrderQty, "1.0")
     quote_request.set(62, "20250601-18:30:00")  # ValidUntilTime
     quote_request.set(126, "20250601-19:00:00")  # ExpireTime
@@ -108,14 +108,14 @@ async def test_all_handlers():
     quote_status_active = FIXMessage("AI")
     quote_status_active.set(131, str(uuid.uuid4()))  # QuoteReqID
     quote_status_active.set(117, str(uuid.uuid4()))  # QuoteID
-    quote_status_active.set(FTag.Symbol, "BTC-USD")
+    quote_status_active.set(FTag.Symbol, "BTC-PERP")
     quote_status_active.set(297, "16")  # Active
     client._handle_quote_status_report(quote_status_active)
     
     quote_status_rejected = FIXMessage("AI")
     quote_status_rejected.set(131, str(uuid.uuid4()))  # QuoteReqID
     quote_status_rejected.set(117, str(uuid.uuid4()))  # QuoteID
-    quote_status_rejected.set(FTag.Symbol, "BTC-USD")
+    quote_status_rejected.set(FTag.Symbol, "BTC-PERP")
     quote_status_rejected.set(297, "5")  # Rejected
     quote_status_rejected.set(FTag.Text, "Invalid price")
     client._handle_quote_status_report(quote_status_rejected)
@@ -129,7 +129,7 @@ async def test_all_handlers():
     
     quote_id = await client.send_quote(
         quote_req_id=str(uuid.uuid4()),
-        symbol="BTC-USD",
+        symbol="BTC-PERP",
         bid_px=49900,
         bid_size="1.0",
         offer_px=50100,

@@ -81,3 +81,39 @@
 2025-06-01 17:47:21,956 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
 2025-06-01 17:47:21,957 - coinbase_hft.main - ERROR - Failed to connect market data client
 2025-06-01 17:47:21,957 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-01 18:50:35,089 - test_all_handlers - INFO - 
+=== Testing OrderMassCancelReport ===
+2025-06-01 18:50:35,089 - coinbase_hft.fix_client - INFO - Mass Cancel Report: ac628f05-100c-4221-8873-4486b6f13caf BTC-USD 1 - Cancel All Orders, Affected: 5 orders
+2025-06-01 18:50:35,089 - coinbase_hft.fix_client - WARNING - Mass Cancel Rejected: 240455b1-7d18-4808-a606-0e595b089e9d - Invalid or unknown Security
+2025-06-01 18:50:35,089 - test_all_handlers - INFO - 
+=== Testing OrderCancelReject ===
+2025-06-01 18:50:35,090 - coinbase_hft.fix_client - WARNING - Order Cancel Reject: 5e8dc306-2e8d-41f0-9285-e8279b252493 (orig: 216749ab-bff8-4ea0-9cf7-50decfa5bbf0) - Unknown order for Order Cancel Request. Text: Order not found
+2025-06-01 18:50:35,090 - test_all_handlers - INFO - Order cancel reject callback triggered
+2025-06-01 18:50:35,090 - test_all_handlers - INFO - 
+=== Testing TradeCaptureReport ===
+2025-06-01 18:50:35,090 - coinbase_hft.fix_client - INFO - Trade Capture Report: e4b9504c-1e4b-4eba-a0a2-bea43eed4f09 BTC-USD 1 - Regular trade, Qty: 0.1, Px: 50000
+2025-06-01 18:50:35,091 - test_all_handlers - INFO - Trade capture report callback triggered
+2025-06-01 18:50:35,091 - coinbase_hft.fix_client - INFO - Trade Capture Report: 9f93cc70-01e6-4620-8dd5-189a84ea32b8 BTC-USD 2 - Transfer (LIQUIDATED), Qty: 0.5, Px: 49000
+2025-06-01 18:50:35,091 - test_all_handlers - INFO - Trade capture report callback triggered
+2025-06-01 18:50:35,091 - test_all_handlers - INFO - 
+=== Testing PreFill Messages ===
+2025-06-01 18:50:35,091 - coinbase_hft.fix_client - INFO - PreFill Request Success: 0b5f06ea-0034-4965-af08-4d44f25952ca
+2025-06-01 18:50:35,091 - coinbase_hft.fix_client - INFO - PreFill Report: 2bed38cf-4386-4a64-bc09-afca2abc7cbf BTC-USD 1 - Qty: 0.1, Px: 50000, Liquidity: Added liquidity
+2025-06-01 18:50:35,091 - test_all_handlers - INFO - 
+=== Testing Quote Request ===
+2025-06-01 18:50:35,092 - coinbase_hft.fix_client - INFO - Quote Request: 88620f79-a64e-4d16-a80e-e1676d6a48b9 BTC-USD - Qty: 1.0, Valid Until: 20250601-18:30:00
+2025-06-01 18:50:35,092 - test_all_handlers - INFO - Quote request callback triggered
+2025-06-01 18:50:35,092 - test_all_handlers - INFO - 
+=== Testing Quote Status Report ===
+2025-06-01 18:50:35,092 - coinbase_hft.fix_client - INFO - Quote Status Report: 6d12372a-6741-4b41-af3d-178ec2eef480 BTC-USD - Active
+2025-06-01 18:50:35,092 - coinbase_hft.fix_client - WARNING - Quote Status Report: 429ff6cf-88d2-44f3-a6bf-19ea7df25e55 BTC-USD - Rejected: Invalid price
+2025-06-01 18:50:35,092 - test_all_handlers - INFO - 
+=== Testing Send Methods ===
+2025-06-01 18:50:35,093 - coinbase_hft.fix_client - INFO - Test mode: Simulating prefill request with ID 83350c1d-af31-4486-8236-33f6be2ba15b
+2025-06-01 18:50:35,094 - test_all_handlers - INFO - PreFill Request sent with ID: 83350c1d-af31-4486-8236-33f6be2ba15b
+2025-06-01 18:50:35,094 - coinbase_hft.fix_client - INFO - Test mode: Simulating RFQ request with ID 318c9047-27ae-4d4a-b559-1efffe03b737
+2025-06-01 18:50:35,094 - test_all_handlers - INFO - RFQ Request sent with ID: 318c9047-27ae-4d4a-b559-1efffe03b737
+2025-06-01 18:50:35,094 - coinbase_hft.fix_client - INFO - Test mode: Simulating quote with ID 40b65f15-cc3c-4215-8333-3d5f15300469
+2025-06-01 18:50:35,095 - test_all_handlers - INFO - Quote sent with ID: 40b65f15-cc3c-4215-8333-3d5f15300469
+2025-06-01 18:50:35,095 - test_all_handlers - INFO - 
+=== All tests completed successfully ===
