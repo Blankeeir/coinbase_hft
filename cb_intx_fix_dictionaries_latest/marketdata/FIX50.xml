@@ -1,0 +1,326 @@
+<fix type='FIX' major='5' minor='0' servicepack='0'>
+    <header />
+    <messages>
+        <message name='SecurityListRequest' msgtype='x' msgcat='app'>
+            <field name='SecurityReqID' required='Y' />
+            <field name='SecurityListRequestType' required='Y' />
+            <field name='Symbol' required='C' />
+        </message>
+        <message name='SecurityList' msgtype='y' msgcat='app'>
+            <field name='SecurityReqID' required='Y' />
+            <field name='SecurityResponseID' required='Y' />
+            <field name='SecurityRequestResult' required='Y' />
+            <field name='TotNoRelatedSym' required='Y' />
+            <field name='LastFragment' required='N' />
+            <component name='SecListGrp' required='Y' />
+        </message>
+        <message name='SecurityDefinition' msgtype='d' msgcat='app'>
+            <field name='SecurityUpdateAction' required='Y'/>
+            <field name='LastUpdateTime' required='Y'/>
+            <component name='Security' required='Y'/>
+            <component name='UndInstrmtGrp' required='N'/>
+        </message>
+        <message name='MarketDataRequest' msgtype='V' msgcat='app'>
+            <field name='MDReqID' required='Y' />
+            <field name='SubscriptionRequestType' required='Y' />
+            <field name='MarketDepth' required='C'/>
+            <group name='NoRelatedSym' required='N'>
+                <field name='Symbol' required='C'/>
+                <field name='SecurityType' required='C'/>
+            </group>
+        </message>
+        <message name='MarketDataRequestReject' msgtype='Y' msgcat='app'>
+            <field name='MDReqID' required='Y' />
+            <field name='MDReqRejReason' required='Y' />
+            <field name='Text' required='N' />
+        </message>
+        <message name='MarketDataSnapshotFullRefresh' msgtype='W' msgcat='app'>
+            <field name='MDReqID' required='Y' />
+            <component name='Instrument' required='Y' />
+            <component name='MDFullGrp' required='Y' />
+        </message>
+        <message name='MarketDataIncrementalRefresh' msgtype='X' msgcat='app'>
+            <field name='MDReqID' required='Y' />
+            <component name='MDIncGrp' required='Y' />
+        </message>
+        <message name='BusinessMessageReject' msgtype='j' msgcat='app'>
+            <field name='RefSeqNum' required='N'/>
+            <field name='RefMsgType' required='Y'/>
+            <field name='BusinessRejectRefID' required='N'/>
+            <field name='BusinessRejectReason' required='Y'/>
+            <field name='Text' required='N'/>
+        </message>
+    </messages>
+    <trailer />
+    <components>
+        <component name='Instrument'>
+            <field name='Symbol' required='Y'/>
+            <field name='SecurityType' required='Y'/>
+        </component>
+        <component name='Security'>
+            <field name='Symbol' required='Y'/>
+            <field name='SecurityType' required='Y'/>
+            <field name='SecuritySubType' required='Y'/>
+            <field name='ContractMultiplier' required='N'/>
+            <field name='MinPriceIncrement' required='Y'/>
+            <field name='MarginRatio' required='Y'/>
+            <field name='DefaultMarginRatio' required='N'/>
+            <group name='NoInstrAttrib' required='Y'>
+                <field name='InstrAttribType' required='Y'/>
+                <field name='InstrAttribValue' required='Y'/>
+            </group>
+            <group name='NoEvents' required='N'>
+                    <field name='EventType' required='N'/>
+                    <field name='EventTime' required='N'/>
+            </group>
+            <field name='Currency' required='Y'/>
+            <field name='MinTradeVol' required='Y'/>
+            <field name='MaxTradeVol' required='N'/>
+            <field name='PositionLimit' required='N'/>
+            <field name='RoundLot' required='Y'/>
+            <field name="MDSecurityTradingStatus" required='N'/>
+        </component>
+        <component name='SecListGrp'>
+            <group name='NoRelatedSym' required='Y'>
+                <component name='Security' required='Y'/>
+                <component name='UndInstrmtGrp' required='N'/>
+            </group>
+        </component>
+        <component name='UndInstrmtGrp'>
+            <group name='NoUnderlyings' required='N'>
+                <component name='UnderlyingInstrument' required='N'/>
+            </group>
+        </component>
+        <component name='UnderlyingInstrument'>
+            <field name='UnderlyingSecurityType' required='N'/>
+        </component>
+        <component name='MDFullGrp'>
+            <group name='NoMDEntries' required='Y'>
+                <field name='MDEntryType' required='Y' />
+                <field name='MDEntryID' required='C' />
+                <field name='MDEntryPx' required='C' />
+                <field name='MDEntrySize' required='C' />
+                <field name='TransactTime' required='Y' />
+                <field name='MDPriceLevel' required='C' />
+            </group>
+        </component>
+        <component name='MDIncGrp'>
+            <group name='NoMDEntries' required='Y'>
+                <field name='MDUpdateAction' required='Y' />
+                <field name='MDEntryType' required='C' />
+                <field name='MDEntryID' required='C' />
+                <field name='Symbol' required='Y' />
+                <field name='MDEntryPx' required='C' />
+                <field name='MDEntrySize' required='C' />
+                <field name='TransactTime' required='Y' />
+                <field name='MDPriceLevel' required='C' />
+                <field name='AggressorSide' required='C' />
+            </group>
+        </component>
+    </components>
+    <fields>
+        <field number='15' name='Currency' type='CURRENCY'/>
+        <field number='45' name='RefSeqNum' type='SEQNUM'/>
+        <field number='55' name='Symbol' type='STRING'/>
+        <field number='58' name='Text' type='STRING'/>
+        <field number='60' name='TransactTime' type='UTCTIMESTAMP'/>
+        <field number='107' name='SecurityDesc' type='STRING'/>
+        <field number='110' name='MinQty' type='QTY'/>
+        <field number='120' name='SettlCurrency' type='CURRENCY'/>
+        <field number='146' name='NoRelatedSym' type='NUMINGROUP'/>
+        <field number='167' name='SecurityType' type='STRING'>
+            <value enum='FXSPOT' description='SPOT_PAIRS'/>
+            <value enum='PERP' description='PERPETUAL_FUTURE'/>
+        </field>
+        <field number='200' name='MaturityMonthYear' type='MONTHYEAR'/>
+        <field number='201' name='PutOrCall' type='INT'>
+            <value enum='0' description='PUT'/>
+            <value enum='1' description='CALL'/>
+        </field>
+        <field number='202' name='StrikePrice' type='PRICE'/>
+        <field number='231' name='ContractMultiplier' type='FLOAT'/>
+        <field number='262' name='MDReqID' type='STRING'/>
+        <field number='263' name='SubscriptionRequestType' type='INT'>
+            <value enum='1' description='SNAPSHOT_PLUS_UPDATES'/>
+            <value enum='2' description='DISABLE_PREVIOUS_SNAPSHOT_PLUS_UPDATE_REQUEST'/>
+        </field>
+        <field number='264' name='MarketDepth' type='INT' />
+        <field number='266' name='AggregatedBook' type='BOOLEAN'>
+            <value enum='Y' description='YES'/>
+            <value enum='N' description='NO'/>
+        </field>
+        <field number='267' name='NoMDEntryTypes' type='NUMINGROUP'/>
+        <field number='268' name='NoMDEntries' type='NUMINGROUP'/>
+        <field number='269' name='MDEntryType' type='CHAR'>
+            <value enum='0' description='BID'/>
+            <value enum='1' description='OFFER'/>
+            <value enum='2' description='TRADE'/>
+            <value enum='3' description='INDEX_PRICE'/>
+            <value enum='6' description='SETTLEMENT_PRICE'/>
+            <value enum='f' description='FINAL_FUNDING_RATE'/>
+            <value enum='g' description='PRICE_LIMIT_UP'/>
+            <value enum='h' description='PRICE_LIMIT_DOWN'/>
+            <value enum='m' description='MARK_PRICE'/>
+            <value enum='p' description='PREDICTED_FUNDING_RATE'/>
+            <value enum='B' description='TRADE_VOLUME'/>
+            <value enum='C' description='OPEN_INTEREST'/>
+            <value enum='4' description='OPENING_PRICE'/>
+        </field>
+        <field number='270' name='MDEntryPx' type='PRICE'/>
+        <field number='271' name='MDEntrySize' type='QTY'/>
+        <field number='278' name='MDEntryID' type='STRING'/>
+        <field number='279' name='MDUpdateAction' type='CHAR'>
+            <value enum='0' description='NEW'/>
+            <value enum='1' description='CHANGE'/>
+            <value enum='2' description='DELETE'/>
+        </field>
+        <field number='281' name='MDReqRejReason' type='CHAR'>
+            <value enum='0' description='UNKNOWN_SYMBOL'/>
+            <value enum='1' description='DUPLICATE_MDREQID'/>
+            <value enum='5' description='UNSUPPORTED_MARKET_DEPTH'/>
+            <value enum='7' description='OTHER'/>
+        </field>
+        <field number='286' name='OpenCloseSettlFlag' type='CHAR'>
+            <value enum='0' description='DAILY_OPEN'/>
+            <value enum='5' description='INDICATIVE_OPEN'/>
+        </field>
+        <field number='310' name='UnderlyingSecurityType' type='STRING'>
+            <value enum='INDEX'  description='CONTRACT_BASED_ON_INDEX'/>
+            <value enum='FXSPOT' description='CONTRACT_BASED_ON_SPOT'/>
+        </field>
+        <field number='311' name='UnderlyingSymbol' type='STRING'/>
+        <field number='320' name='SecurityReqID' type='STRING'/>
+        <field number='322' name='SecurityResponseID' type='INT'/>
+        <field number='372' name='RefMsgType' type='STRING'/>
+        <field number='379' name='BusinessRejectRefID' type='STRING'/>
+        <field number='380' name='BusinessRejectReason' type='INT'>
+            <value enum='0' description='OTHER'/>
+            <value enum='1' description='UNKOWN_ID'/>
+            <value enum='2' description='UNKNOWN_SECURITY'/>
+            <value enum='3' description='UNSUPPORTED_MESSAGE_TYPE'/>
+            <value enum='4' description='APPLICATION_NOT_AVAILABLE'/>
+            <value enum='5' description='CONDITIONALLY_REQUIRED_FIELD_MISSING'/>
+            <value enum='6' description='NOT_AUTHORIZED'/>
+            <value enum='7' description='DELIVERTO_FIRM_NOT_AVAILABLE_AT_THIS_TIME'/>
+        </field>
+        <field number='393' name='TotNoRelatedSym' type='INT'/>
+        <field number='461' name='CFICode' type='STRING'/>
+        <field number='462' name='UnderlyingProduct' type='INT'>
+            <value enum='2' description='COMMODITY_AGRICULTURE'/>
+            <value enum='4' description='CURRENCY'/>
+            <value enum='5' description='EQUITY'/>
+            <value enum='12' description='OTHER'/>
+            <value enum='14' description='INTEREST_RATE'/>
+            <value enum='15' description='FX_CASH'/>
+            <value enum='16' description='ENERGY'/>
+            <value enum='17' description='METALS'/>
+            <value enum='99' description='CRYPTO'/>
+        </field>
+        <field number='555' name='NoLegs' type='NUMINGROUP'/>
+        <field number='556' name='LegCurrency' type='CURRENCY'/>
+        <field number='559' name='SecurityListRequestType' type='INT'>
+            <value enum='0' description='SYMBOL'/>
+            <value enum='4' description='ALL_SECURITIES'/>
+        </field>
+        <field number='560' name='SecurityRequestResult' type='INT'>
+            <value enum='0' description='VALID_REQUEST'/>
+            <value enum='1' description='INVALID_OR_UNSUPPORTED_REQUEST'/>
+            <value enum='2' description='NO_INSTRUMENTS_FOUND_THAT_MATCH_SELECTION_CRITERIA'/>
+            <value enum='4' description='INSTRUMENT_DATA_TEMPORARILY_UNAVAILABLE'/>
+        </field>
+        <field number='561' name='RoundLot' type='QTY' />
+        <field number='562' name='MinTradeVol' type='QTY'/>
+        <field number='600' name='LegSymbol' type='STRING'/>
+        <field number='608' name='LegCFICode' type='STRING'/>
+        <field number='609' name='LegSecurityType' type='STRING'>
+            <value enum='FUT' description='FUTURES'/>
+            <value enum='OPT' description='OPTIONS'/>
+        </field>
+        <field number='620' name='LegSecurityDesc' type='STRING'/>
+        <field number='624' name='LegSide' type='CHAR'>
+            <value enum='1' description='BUY'/>
+            <value enum='2' description='SELL'/>
+        </field>
+        <field number='711' name='NoUnderlyings' type='NUMINGROUP'/>
+        <field number='730' name='SettlPrice' type='PRICE'/>
+        <field number='731' name='SettlPriceType' type='INT'>
+            <value enum='1' description='FINAL'/>
+            <value enum='2' description='THEORETICAL'/>
+        </field>
+        <field number='734' name='PriorSettlPrice' type='PRICE'/>
+        <field number='762' name='SecuritySubType' type='STRING'>
+            <value enum='STANDARD' description='STANDARD INSTRUMENT MODE'/>
+            <value enum='PRE_LAUNCH' description='PRE LAUNCH INSTRUMENT MODE'/>
+            <value enum='PRE_LAUNCH_CONVERTING' description='PRE LAUNCH CONVERTING TO STANDARD'/>
+        </field>
+        <field number='779' name='LastUpdateTime' type='UTCTIMESTAMP'/>
+        <field number='864' name='NoEvents' type='NUMINGROUP'/>
+        <field number='865' name='EventType' type='INT'>
+            <value enum='1' description='PUT'/>
+            <value enum='2' description='CALL'/>
+            <value enum='3' description='TENDER'/>
+            <value enum='4' description='SINKING_FUND_CALL'/>
+            <value enum='5' description='ACTIVATION'/>
+            <value enum='7' description='LAST_ELIGIBLE_TRADE_DATE'/>
+            <value enum='99' description='OTHER'/>
+            <value enum='101' description='PRE_LAUNCH_CONVERSION_TIME'/>
+        </field>
+        <field number='870' name='NoInstrAttrib' type='NUMINGROUP' />
+        <field number='871' name='InstrAttribType' type='INT'>
+            <value enum='40' description='AVERAGE_DAILY_NOTIONAL_AMOUNT' />
+            <value enum='41' description='AVERAGE_DAILY_TRADE_QUANTITY' />
+            <value enum='42' description='TOTAL_DAY_NOTIONAL_AMOUNT' />
+            <value enum='43' description='TOTAL_DAY_TRADE_QUANTITY' />
+            <value enum='44' description='TOTAL_HOUR_NOTIONAL_AMOUNT' />
+            <value enum='45' description='TOTAL_HOUR_TRADE_QUANTITY' />
+        </field>
+        <field number='872' name='InstrAttribValue' type='STRING' />
+        <field number='893' name='LastFragment' type='BOOLEAN'>
+            <value enum='Y' description='YES'/>
+            <value enum='N' description='NO'/>
+        </field>
+        <field number='898' name='MarginRatio' type='PRICE'/>
+        <field number='21000' name='DefaultMarginRatio' type='PRICE'/>
+        <field number='969' name='MinPriceIncrement' type='PRICE'/>
+        <field number='980' name='SecurityUpdateAction' type='CHAR'>
+            <value enum='A' description='NEWLY_ADDED'/>
+            <value enum='M' description='MODIFIED'/>
+            <value enum='D' description='DELETED'/>
+        </field>
+        <field number='996' name='UnitOfMeasure' type='STRING'/>
+        <field number='970' name='PositionLimit' type='QTY'/>
+        <field number='1023' name='MDPriceLevel' type='INT'/>
+        <field number='1140' name='MaxTradeVol' type='QTY'/>
+        <field number='1143' name='MaxPriceVariation' type='PRICE'/>
+        <field number='1145' name='EventTime' type='UTCTIMESTAMP'/>
+        <field number='1147' name='UnitOfMeasureQty' type='QTY'/>
+        <field number='1148' name='LowLimitPrice' type='PRICE'/>
+        <field number='1149' name='HighLimitPrice' type='PRICE'/>
+        <field number='1682' name='MDSecurityTradingStatus' type='INT'>
+            <value enum='2' description='TRADING_HALT'/>
+            <value enum='4' description='CLOSE'/>
+            <value enum='15' description='NEW_PRICE_INDICATION'/>
+            <value enum='17' description='READY_TO_TRADE'/>
+            <value enum='18' description='NOT_AVAILABLE_FOR_TRADING'/>
+            <value enum='19' description='NOT_TRADED_ON_THIS_MARKET'/>
+            <value enum='20' description='UNKNOWN_OR_INVALID'/>
+            <value enum='21' description='PRE_OPEN'/>
+            <value enum='24' description='PRE_CROSS'/>
+            <value enum='25' description='CROSS'/>
+            <value enum='26' description='POST_CLOSE'/>
+            <value enum='27' description='PRE_OPEN_NO_CANCEL'/>
+            <value enum='99' description='PAUSE'/>
+        </field>
+        <field number='5791' name='ClearedVolume' type='QTY'/>
+        <field number='5792' name='OpenInterestQty' type='QTY'/>
+        <field number='5796' name='TradingReferenceDate' type='UTCDATEONLY'/>
+        <field number='2446' name='AggressorSide' type='INT'>
+            <value enum='0' description='NO_AGGRESSOR'/>
+            <value enum='1' description='BUY'/>
+            <value enum='2' description='SELL'/>
+        </field>
+        <field number='6937' name='Asset' type='STRING'/>
+        <field number='29001' name='LargeTickThreshold' type='PRICE'/>
+        <field number='29002' name='LargeTick' type='PRICE'/>
+    </fields>
+</fix>

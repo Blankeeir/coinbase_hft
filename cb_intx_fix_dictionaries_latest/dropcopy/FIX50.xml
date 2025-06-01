@@ -1,0 +1,321 @@
+<fix type='FIX' major='5' minor='0' servicepack='0'>
+    <header />
+    <messages>
+        <message name='ExecutionReport' msgtype='8' msgcat='app'>
+            <field name='ClOrdID' required='Y' />
+            <field name='OrigClOrdID' required='C' />
+            <field name='TrdMatchID' required='C' />
+            <field name='ExecID' required='Y' />
+            <field name='ExecTransType' required='Y'/>
+            <field name='OrderID' required='Y' />
+            <component name='Parties' required='C' />
+            <field name='ExecType' required='Y' />
+            <field name='OrdStatus' required='Y' />
+            <field name='OrdRejReason' required='C'/>
+            <field name='Symbol' required='Y' />
+            <field name='Side' required='Y' />
+            <field name='OrderQty' required='C'/>
+            <field name='OrdType' required='Y' />
+            <field name='Price' required='C' />
+            <field name='StopPx' required='C' />
+            <field name='StopLimitPx' required='C' />
+            <field name='Currency' required='Y' />
+            <field name='TimeInForce' required='N' />
+            <field name='ExpireTime' required='C' />
+            <field name='LastQty' required='C' />
+            <field name='LastPx' required='C' />
+            <field name='LeavesQty' required='Y' />
+            <field name='CumQty' required='Y' />
+            <field name='AvgPx' required='Y'/>
+            <field name='TransactTime' required='Y' />
+            <field name='Text' required='N' />
+            <field name='LastLiquidityInd' required='C'/>
+            <group name='NoMiscFees' required='C'>
+                <field name='MiscFeeAmt' required='C'/>
+                <field name='MiscFeeCurr' required='C'/>
+                <field name='MiscFeeType' required='C'/>
+            </group>
+            <field name='SelfTradePreventionStrategy' required='Y'/>
+            <field name='ExecInst' required='N'/>
+            <field name='TargetStrategy' required='C'/>
+            <field name='VenueType' required='N'/>
+        </message>
+        <message name='BusinessMessageReject' msgtype='j' msgcat='app'>
+            <field name='RefSeqNum' required='N' />
+            <field name='RefMsgType' required='Y' />
+            <field name='BusinessRejectRefID' required='N' />
+            <field name='BusinessRejectReason' required='Y' />
+            <field name='Text' required='N' />
+            <field name='EncodedTextLen' required='N' />
+            <field name='EncodedText' required='N' />
+        </message>
+        <message name='TradeCaptureReport' msgtype='AE' msgcat='app'>
+            <field name='TrdType' required='Y' />
+            <field name='TrdMatchID' required='Y' />
+            <field name="TransferReason" required='Y' />
+            <field name='ExecID' required='Y' />
+            <field name='TradeLinkID' required='Y' />
+            <field name='Symbol' required='Y' />
+            <field name='LastQty' required='C' />
+            <field name='LastPx' required='C' />
+            <field name='TransactTime' required='Y' />
+            <component name='Sides' required='Y' />
+        </message>
+        <message name='QuoteStatusReport' msgtype='AI' msgcat='app'>
+            <field name='ExecID' required='Y' />
+            <field name='QuoteReqID' required='Y' />
+            <field name='QuoteID' required='Y' />
+            <field name='Symbol' required='Y' />
+            <field name='OrderQty' required='Y' />
+            <field name='BidPx' required='C' />
+            <field name='OfferPx' required='C' />
+            <field name='BidSize' required='C' />
+            <field name='OfferSize' required='C' />
+            <field name='ValidUntilTime' required='Y' />
+            <field name='ExpireTime' required='Y' />
+            <field name='QuoteStatus' required='Y' />
+            <field name='Text' required='C' />
+            <field name='Side' required='C' />
+        </message>
+        <message name='LastExecIDRequest' msgtype='F1' msgcat='app'>
+            <field name="TestReqID" required="N"/> <!-- added to satisfy quickfix.DataDictionary.load, which requires at least 1 field -->
+        </message>
+        <message name='LastExecID' msgtype='F2' msgcat='app'>
+            <field name='RefSeqNum' required='Y'/>
+            <field name='ExecID' required='Y'/>
+        </message>
+        <message name='EventResendRequest' msgtype='F3' msgcat='app'>
+            <field name='BeginExecId' required='Y'/>
+            <field name='EndExecId' required='N'/>
+        </message>
+        <message name='EventResendComplete' msgtype='F4' msgcat='app'>
+            <field name='RefSeqNum' required='Y'/>
+            <field name='ResentEventCount' required='Y'/>
+        </message>
+        <message name='EventResendReject' msgtype='F5' msgcat='app'>
+            <field name='RefSeqNum' required='Y'/>
+            <field name='EventResendRejectReason' required='Y'/>
+            <field name='Text' required='N'/>
+        </message>
+    </messages>
+    <trailer />
+    <components>
+        <component name='Parties'>
+            <group name='NoPartyIDs' required='C'>
+                <field name='PartyID' required='C' />
+                <field name='PartyRole' required='C' />
+            </group>
+        </component>
+        <component name='MiscFees'>
+            <group name='NoMiscFees' required='C' >
+                <field name='MiscFeeAmt' required='C'/>
+                <field name='MiscFeeCurr' required='C'/>
+                <field name='MiscFeeType' required='C'/>
+            </group>
+        </component>
+        <component name='Sides'>
+            <group name='NoSides' required='C' >
+                <field name='Side' required='Y' />
+                <component name='Parties' required='C' />
+                <component name='MiscFees' required='C' />
+            </group>
+        </component>
+    </components>
+    <fields>
+        <field number='6' name='AvgPx' type='PRICE' />
+        <field number='11' name='ClOrdID' type='STRING' />
+        <field number='12' name='Commission' type='AMT' />
+        <field number='14' name='CumQty' type='QTY' />
+        <field number='15' name='Currency' type='CURRENCY' />
+        <field number='17' name='ExecID' type='STRING' />
+        <field number='20' name='ExecTransType' type='CHAR'>
+            <value enum='0' description='NEW'/>
+            <value enum='1' description='CANCEL'/>
+            <value enum='2' description='CORRECT'/>
+        </field>
+        <field number='18' name='ExecInst' type='MULTIPLECHARVALUE'>
+            <value enum='6' description='POST_ONLY' />
+            <value enum='E' description='CLOSE_ONLY'/>
+        </field>
+        <field number='31' name='LastPx' type='PRICE' />
+        <field number='32' name='LastQty' type='QTY' />
+        <field number='37' name='OrderID' type='STRING' />
+        <field number='38' name='OrderQty' type='QTY' />
+        <field number='39' name='OrdStatus' type='CHAR'>
+            <value enum='0' description='NEW' />
+            <value enum='1' description='PARTIALLY_FILLED' />
+            <value enum='2' description='FILLED' />
+            <value enum='4' description='CANCELED' />
+            <value enum='5' description='REPLACED' />
+            <value enum='6' description='PENDING_CANCEL' />
+            <value enum='8' description='REJECTED' />
+            <value enum='A' description='PENDING_NEW' />
+            <value enum='E' description='PENDING_REPLACE' />
+            <value enum='D' description='DECREMENTED' />
+            <value enum='U' description='UNDEFINED'/>
+        </field>
+        <field number='40' name='OrdType' type='CHAR'>
+            <value enum='1' description='MARKET'/>
+            <value enum='2' description='LIMIT'/>
+            <value enum='3' description='STOP'/>
+            <value enum='4' description='STOP_LIMIT'/>
+            <value enum='O' description='TAKE_PROFIT_STOP_LOSS'/>
+        </field>
+        <field number='41' name='OrigClOrdID' type='STRING' />
+        <field number='44' name='Price' type='PRICE' />
+        <field number='45' name='RefSeqNum' type='SEQNUM'/>
+        <field number='54' name='Side' type='CHAR'>
+            <value enum='1' description='BUY' />
+            <value enum='2' description='SELL' />
+        </field>
+        <field number='55' name='Symbol' type='STRING'/>
+        <field number='58' name='Text' type='STRING' />
+        <field number='59' name='TimeInForce' type='CHAR'>
+            <value enum='1' description='GOOD_TIL_CANCELED'/>
+            <value enum='3' description='IMMEDIATE_OR_CANCEL'/>
+            <value enum='4' description='FILL_OR_KILL'/>
+            <value enum='6' description='GOOD_TIL_TIME'/>
+        </field>
+        <field number='60' name='TransactTime' type='UTCTIMESTAMP' />
+        <field number='62' name='ValidUntilTime' type='UTCTIMESTAMP' />
+        <field number='99' name='StopPx' type='PRICE' />
+        <field number='103' name='OrdRejReason' type='INT'>
+            <value enum='0' description='UNKNOWN' />
+            <value enum='1' description='UNKNOWN_SYMBOL' />
+            <value enum='6' description='DUPLICATE_ORDER' />
+            <value enum='13' description='INVALID_QUANTITY' />
+            <value enum='15' description='UNKNOWN_ACCOUNTS' />
+            <value enum='16' description='PRICE_EXCEEDS_CURRENT_PRICE_BAND' />
+            <value enum='18' description='INVALID_PRICE_INCREMENT' />
+            <value enum='25' description='INSUFFICIENT_CREDIT_LIMIT' />
+            <value enum='40' description='IN_LIQUIDATION' />
+            <value enum='41' description='EXCEEDED_POSITION_LIMIT' />
+            <value enum='42' description='INVALID_CLIENT' />
+            <value enum='43' description='CLIENT_PERMISSION_ERROR' />
+            <value enum='44' description='NOT_ALLOWED_BY_MARKET_STATE' />
+            <value enum='45' description='INVALID_ORDER_PARAMETER' />
+            <value enum='46' description='INVALID_PRICE' />
+            <value enum='47' description='CLOSE_ONLY' />
+            <value enum='99' description='OTHER' />
+        </field>
+        <field number='112' name='TestReqID' type='STRING' />
+        <field number='117' name='QuoteID' type='STRING' />
+        <field number='126' name='ExpireTime' type='UTCTIMESTAMP' />
+        <field number='131' name='QuoteReqID' type='STRING' />
+        <field number='132' name='BidPx' type='PRICE' />
+        <field number='133' name='OfferPx' type='PRICE' />
+        <field number='134' name='BidSize' type='QTY' />
+        <field number='135' name='OfferSize' type='QTY' />
+        <field number='136' name='NoMiscFees' type='NUMINGROUP'/>
+        <field number='137' name='MiscFeeAmt' type='AMT'/>
+        <field number='138' name='MiscFeeCurr' type='CURRENCY'/>
+        <field number='139' name='MiscFeeType' type='STRING'>
+            <value enum='1' description='REGULATORY' />
+            <value enum='2' description='TAX' />
+            <value enum='3' description='LOCAL_COMMISSION' />
+            <value enum='4' description='EXCHANGE_FEES' />
+            <value enum='5' description='STAMP' />
+            <value enum='6' description='LEVY' />
+            <value enum='7' description='OTHER' />
+            <value enum='8' description='MARKUP' />
+            <value enum='9' description='CONSUMPTION_TAX' />
+            <value enum='10' description='PER_TRANSACTION' />
+            <value enum='11' description='CONVERSION' />
+            <value enum='12' description='AGENT' />
+            <value enum='13' description='TRANSFER_FEE' />
+            <value enum='14' description='SECURITY_LENDING' />
+        </field>
+        <field number='150' name='ExecType' type='CHAR'>
+            <value enum='0' description='NEW' />
+            <value enum='1' description='PARTIAL_FILL' />
+            <value enum='2' description='FILL' />
+            <value enum='4' description='CANCELED' />
+            <value enum='5' description='REPLACED' />
+            <value enum='6' description='PENDING_CANCEL' />
+            <value enum='8' description='REJECTED' />
+            <value enum='A' description='PENDING_NEW' />
+            <value enum='C' description='EXPIRED' />
+            <value enum='E' description='PENDING_REPLACE' />
+            <value enum='L' description='STOP_TRIGGERED' />
+            <value enum='D' description='DECREMENTED' />
+        </field>
+        <field number='151' name='LeavesQty' type='QTY' />
+        <field number='167' name='SecurityType' type='STRING'>
+            <value enum='FXSPOT' description='SPOT_PAIRS'/>
+            <value enum='PERP' description='PERPETUAL_FUTURE'/>
+        </field>
+        <field number='297' name='QuoteStatus' type='INT'>
+            <value enum='5' description='REJECTED' />
+            <value enum='7' description='EXPIRED' />
+            <value enum='16' description='ACTIVE' />
+            <value enum='17' description='CANCELED' />
+            <value enum='19' description='PENDING_END_TRADE' />
+        </field>
+        <field number='354' name='EncodedTextLen' type='LENGTH'/>
+        <field number='355' name='EncodedText' type='DATA'/>
+        <field number='372' name='RefMsgType' type='STRING'/>
+        <field number='379' name='BusinessRejectRefID' type='STRING'/>
+        <field number='380' name='BusinessRejectReason' type='INT'>
+            <value enum='0' description='OTHER'/>
+            <value enum='1' description='UNKNOWN_ID'/>
+            <value enum='2' description='UNKNOWN_SECURITY'/>
+            <value enum='3' description='UNSUPPORTED_MESSAGE_TYPE'/>
+            <value enum='4' description='APPLICATION_NOT_AVAILABLE'/>
+            <value enum='5' description='CONDITIONALLY_REQUIRED_FIELD_MISSING'/>
+            <value enum='6' description='NOT_AUTHORIZED'/>
+            <value enum='7' description='DELIVERTO_FIRM_NOT_AVAILABLE_AT_THIS_TIME'/>
+        </field>
+        <field number='448' name='PartyID' type='STRING' />
+        <field number='452' name='PartyRole' type='INT'>
+            <value enum='3' description='CLIENT_ID' />
+            <value enum='24' description='CUSTOMER_ACCOUNT' />
+        </field>
+        <field number='453' name='NoPartyIDs' type='NUMINGROUP' />
+        <field number='552' name='NoSides' type='NUMINGROUP' />
+        <field number='828' name='TrdType' type='INT'>
+            <value enum='0' description='REGULAR_TRADE' />
+            <value enum='3' description='TRANSFER' />
+        </field>
+        <field number='820' name='TradeLinkID' type='STRING' />
+        <field number='830' name='TransferReason' type='STRING' >
+            <value enum='LIQUIDATED' description='LIQUIDATED' />
+            <value enum='ASSIGNED' description='ASSIGNED' />
+        </field>
+        <field number='847' name='TargetStrategy' type='INT'>
+            <value enum='1001' description='TWAP'/>
+        </field>
+        <field number='851' name='LastLiquidityInd' type='INT'>
+            <value enum='1' description='ADDED_LIQUIDITY' />
+            <value enum='2' description='REMOVED_LIQUIDITY' />
+        </field>
+        <field number='880' name='TrdMatchID' type='STRING'/>
+        <field number='891' name='MiscFeeBasis' type='INT'>
+            <value enum='0' description='ABSOLUTE'/>
+            <value enum='1' description='PER_UNIT'/>
+            <value enum='2' description='PERCENTAGE'/>
+        </field>
+        <field number='1003' name='TradeID' type='STRING'/>
+        <field number='1040' name='SecondaryTradeID' type='STRING'/>
+        <field number='1430' name='VenueType' type='CHAR' >
+            <value enum='E' description='ELECTRONIC_EXCHANGE'/>
+            <value enum='N' description='QUOTE_NEGOTIATION'/>
+        </field>
+        <field number='3040' name='StopLimitPx' type='PRICE'/>
+        <field number='8000' name='SelfTradePreventionStrategy' type='CHAR'>
+            <value enum='Q' description='CANCEL_BOTH'/>
+            <value enum='N' description='CANCEL_AGGRESSING'/>
+            <value enum='O' description='CANCEL_RESTING'/>
+            <value enum='D' description='DECREMENT_AND_CANCEL'/>
+        </field>
+        <field number='22003' name='BeginExecId' type='STRING'/>
+        <field number='22004' name='EndExecId' type='STRING'/>
+        <field number='22005' name='ResentEventCount' type='INT'/>
+        <field number='22006' name='EventResendRejectReason' type='INT'>
+            <value enum='1' description='BEGIN_EXEC_ID_TOO_SMALL'/>
+            <value enum='2' description='END_EXEC_ID_TOO_LARGE'/>
+            <value enum='3' description='RESEND_ALREADY_IN_PROGRESS'/>
+            <value enum='4' description='TOO_MANY_RESEND_REQUESTS'/>
+            <value enum='5' description='SERVER_ERROR'/>
+        </field>
+    </fields>
+</fix>

@@ -16,3 +16,15 @@
 2025-06-01 12:21:58,031 - coinbase_hft.fix_client - ERROR - Authentication error: 'AsyncFIXConnection' object has no attribute 'send_logon'
 2025-06-01 12:21:58,032 - coinbase_hft.main - ERROR - Failed to connect market data client
 2025-06-01 12:21:58,032 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-01 12:39:37,281 - coinbase_hft.strategy - INFO - Created new model
+2025-06-01 12:39:37,281 - coinbase_hft.main - INFO - Starting HFT bot for BTC-USD
+2025-06-01 12:39:37,303 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 12:39:37,303 - coinbase_hft.fix_client - ERROR - Authentication error: 'FIXMessage' object has no attribute 'set_field'
+2025-06-01 12:39:37,304 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-01 12:39:37,306 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-01 16:55:24,530 - coinbase_hft.strategy - INFO - Created new model
+2025-06-01 16:55:24,530 - coinbase_hft.main - INFO - Starting HFT bot for BTC-USD
+2025-06-01 16:55:24,563 - coinbase_hft.fix_client - INFO - Connected to n5e2.coinbase.com:6120 for market_data session
+2025-06-01 16:55:34,600 - coinbase_hft.fix_client - ERROR - Connection timeout: state=1
+2025-06-01 16:55:34,601 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-01 16:55:34,602 - coinbase_hft.main - ERROR - Failed to connect, exiting
