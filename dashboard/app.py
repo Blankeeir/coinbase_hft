@@ -321,25 +321,29 @@ def main():
         st.markdown("<div class='sub-header'>Balance</div>", unsafe_allow_html=True)
         balance = metrics.get("balance", [])
         current_balance = balance[-1][1] if balance else 0
-        st.markdown(f"<div class='metric-card'>${current_balance:.2f}</div>", unsafe_allow_html=True)
+        formatted_balance = "N/A" if current_balance is None else f"${current_balance:.2f}"
+        st.markdown(f"<div class='metric-card'>{formatted_balance}</div>", unsafe_allow_html=True)
     
     with col2:
         st.markdown("<div class='sub-header'>Daily PnL</div>", unsafe_allow_html=True)
         daily_pnl = metrics.get("pnl_daily", [])
         current_pnl = daily_pnl[-1][1] if daily_pnl else 0
         pnl_class = "positive" if current_pnl >= 0 else "negative"
-        st.markdown(f"<div class='metric-card'><span class='{pnl_class}'>${current_pnl:.2f}</span></div>", unsafe_allow_html=True)
+        formatted_pnl = "N/A" if current_pnl is None else f"${current_pnl:.2f}"
+        st.markdown(f"<div class='metric-card'><span class='{pnl_class}'>{formatted_pnl}</span></div>", unsafe_allow_html=True)
     
     with col3:
         st.markdown("<div class='sub-header'>Win Rate</div>", unsafe_allow_html=True)
         win_rate = metrics.get("win_rate", 0) * 100
-        st.markdown(f"<div class='metric-card'>{win_rate:.1f}%</div>", unsafe_allow_html=True)
+        formatted_win_rate = "N/A" if win_rate is None else f"{win_rate:.1f}%"
+        st.markdown(f"<div class='metric-card'>{formatted_win_rate}</div>", unsafe_allow_html=True)
     
     with col4:
         st.markdown("<div class='sub-header'>Sharpe Ratio</div>", unsafe_allow_html=True)
         sharpe = metrics.get("sharpe", 0)
-        sharpe_class = "positive" if sharpe > 1 else ("neutral" if sharpe > 0 else "negative")
-        st.markdown(f"<div class='metric-card'><span class='{sharpe_class}'>{sharpe:.2f}</span></div>", unsafe_allow_html=True)
+        sharpe_class = "neutral" if sharpe is None else ("positive" if sharpe > 1 else ("neutral" if sharpe > 0 else "negative"))
+        formatted_sharpe = "N/A" if sharpe is None else f"{sharpe:.2f}"
+        st.markdown(f"<div class='metric-card'><span class='{sharpe_class}'>{formatted_sharpe}</span></div>", unsafe_allow_html=True)
     
     st.markdown("<div class='sub-header'>Performance Charts</div>", unsafe_allow_html=True)
     
@@ -406,7 +410,8 @@ def main():
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.markdown("**Max Drawdown**", unsafe_allow_html=True)
         max_dd = metrics.get("max_drawdown", 0) * 100
-        st.markdown(f"<span class='negative'>{max_dd:.2f}%</span>", unsafe_allow_html=True)
+        formatted_max_dd = "N/A" if max_dd is None else f"{max_dd:.2f}%"
+        st.markdown(f"<span class='negative'>{formatted_max_dd}</span>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
     
     with col3:
@@ -415,7 +420,8 @@ def main():
         total_pnl = metrics.get("pnl_total", [])
         current_total_pnl = total_pnl[-1][1] if total_pnl else 0
         pnl_class = "positive" if current_total_pnl >= 0 else "negative"
-        st.markdown(f"<span class='{pnl_class}'>${current_total_pnl:.2f}</span>", unsafe_allow_html=True)
+        formatted_total_pnl = "N/A" if current_total_pnl is None else f"${current_total_pnl:.2f}"
+        st.markdown(f"<span class='{pnl_class}'>{formatted_total_pnl}</span>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
