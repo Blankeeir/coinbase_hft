@@ -114,7 +114,19 @@ class CoinbaseFIXClient:
                 store_dir = "store"
                 import os
                 os.makedirs(store_dir, exist_ok=True)
-                self.journaler = Journaler(f"{store_dir}/{self.session_type}_session.db")
+                
+                timestamp = int(time.time())
+                db_path = f"{store_dir}/{self.session_type}_{timestamp}_session.db"
+                
+                if self.journaler:
+                    try:
+                        if hasattr(self.journaler, 'conn') and self.journaler.conn:
+                            self.journaler.conn.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing previous journaler connection: {e}")
+                
+                self.journaler = Journaler(db_path)
+                logger.debug(f"Created new journaler with database: {db_path}")
                 
                 # Create AsyncFIXConnection
                 self.connection = AsyncFIXConnection(
@@ -130,9 +142,17 @@ class CoinbaseFIXClient:
                 
                 self.connection.on_message = self._on_message
                 
-                await self.connection.connect()
-                self.connected = True
-                logger.info(f"Connected to {self.host}:{self.port} for {self.session_type} session")
+                try:
+                    await self.connection.connect()
+                    self.connected = True
+                    logger.info(f"Connected to {self.host}:{self.port} for {self.session_type} session")
+                except Exception as e:
+                    logger.error(f"Connection error details: {str(e)}")
+                    if "SSL" in str(e) or "TLS" in str(e):
+                        logger.error("SSL/TLS handshake failed. Check your certificates.")
+                    if "Connection refused" in str(e):
+                        logger.error("Connection refused. Your IP may not be whitelisted.")
+                    raise
                 
                 connection_start = time.time()
                 while (self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED and 
@@ -190,10 +210,18 @@ class CoinbaseFIXClient:
         return False
     
     async def disconnect(self) -> None:
-        """Disconnect from FIX server."""
+        """Disconnect from FIX server and clean up resources."""
         try:
             if self.connection and self.connected:
                 await self.connection.disconnect()
+            
+            if self.journaler and hasattr(self.journaler, 'conn') and self.journaler.conn:
+                try:
+                    self.journaler.conn.close()
+                    logger.debug(f"Closed journaler connection for {self.session_type} session")
+                except Exception as e:
+                    logger.warning(f"Error closing journaler connection: {e}")
+            
             self.connected = False
             self.authenticated = False
             logger.info(f"Disconnected from {self.session_type} session")
