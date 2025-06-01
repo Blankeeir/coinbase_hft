@@ -143,31 +143,43 @@ class CoinbaseFIXClient:
                 self.connection.on_message = self._on_message
                 
                 try:
-                    await self.connection.connect()
-                    self.connected = True
-                    logger.info(f"Connected to {self.host}:{self.port} for {self.session_type} session")
+                    if self.test_mode:
+                        self.connected = True
+                        logger.info(f"[TEST MODE] Simulated connection to {self.host}:{self.port} for {self.session_type} session")
+                    else:
+                        await self.connection.connect()
+                        self.connected = True
+                        logger.info(f"Connected to {self.host}:{self.port} for {self.session_type} session")
                 except Exception as e:
                     logger.error(f"Connection error details: {str(e)}")
                     if "SSL" in str(e) or "TLS" in str(e):
                         logger.error("SSL/TLS handshake failed. Check your certificates.")
                     if "Connection refused" in str(e):
                         logger.error("Connection refused. Your IP may not be whitelisted.")
+                    if "timeout" in str(e).lower():
+                        logger.error("Connection timeout. Your IP may not be whitelisted or there may be network issues.")
                     raise
                 
-                connection_start = time.time()
-                while (self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED and 
-                       time.time() - connection_start < network_timeout):
-                    await asyncio.sleep(0.1)
-                    
-                if self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
-                    logger.error(f"Network connection timeout: state={self.connection.connection_state}")
-                    self.connected = False
-                    
-                    if attempt < max_retries:
-                        backoff = retry_delay * (2 ** (attempt - 1))
-                        logger.info(f"Retrying in {backoff} seconds...")
-                        await asyncio.sleep(backoff)
-                    continue
+                if self.test_mode:
+                    # In test mode, simulate successful connection
+                    self.authenticated = True
+                    logger.info(f"[TEST MODE] Simulated successful authentication for {self.session_type} session")
+                    return True
+                else:
+                    connection_start = time.time()
+                    while (self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED and 
+                           time.time() - connection_start < network_timeout):
+                        await asyncio.sleep(0.1)
+                        
+                    if self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
+                        logger.error(f"Network connection timeout: state={self.connection.connection_state}")
+                        self.connected = False
+                        
+                        if attempt < max_retries:
+                            backoff = retry_delay * (2 ** (attempt - 1))
+                            logger.info(f"Retrying in {backoff} seconds...")
+                            await asyncio.sleep(backoff)
+                        continue
                 
                 # Authenticate
                 auth_success = await self._authenticate()
@@ -236,6 +248,11 @@ class CoinbaseFIXClient:
             bool: True if authentication request was sent successfully
         """
         try:
+            # In test mode, simulate successful authentication
+            if self.test_mode:
+                logger.info(f"[TEST MODE] Simulated authentication for {self.session_type} session")
+                return True
+                
             if not all([self.api_key, self.api_secret, self.passphrase]):
                 logger.error("Cannot authenticate: Missing API credentials")
                 return False
