@@ -39,6 +39,9 @@ class CoinbaseFIXClient:
         on_trade_capture_report: Optional[Callable[[FIXMessage], None]] = None,
         on_quote_request: Optional[Callable[[FIXMessage], None]] = None,
         on_quote: Optional[Callable[[FIXMessage], None]] = None,
+        on_security_list: Optional[Callable[[FIXMessage, List[Dict]], None]] = None,
+        on_security_definition: Optional[Callable[[FIXMessage, Dict], None]] = None,
+        on_market_data_request_reject: Optional[Callable[[FIXMessage], None]] = None,
         test_mode: bool = False,
     ):
         """
@@ -53,6 +56,9 @@ class CoinbaseFIXClient:
             on_trade_capture_report: Callback for trade capture reports
             on_quote_request: Callback for quote requests
             on_quote: Callback for quote messages
+            on_security_list: Callback for security list messages
+            on_security_definition: Callback for security definition messages
+            on_market_data_request_reject: Callback for market data request reject messages
             test_mode: Run in test mode without real connection
         """
         self.session_type = session_type
@@ -63,6 +69,9 @@ class CoinbaseFIXClient:
         self.on_trade_capture_report = on_trade_capture_report
         self.on_quote_request = on_quote_request
         self.on_quote = on_quote
+        self.on_security_list = on_security_list
+        self.on_security_definition = on_security_definition
+        self.on_market_data_request_reject = on_market_data_request_reject
         self.test_mode = test_mode
         
         if session_type == "order_entry":
@@ -96,6 +105,14 @@ class CoinbaseFIXClient:
         self.journaler = None
         self.connected = False
         self.authenticated = False
+        
+        if self.test_mode:
+            self.connected = True
+            class MockConnection:
+                async def send_msg(self, message):
+                    logger.info(f"Test mode: Would send message {message}")
+                    return True
+            self.connection = MockConnection()
         
         self.next_client_order_id = int(time.time())
         self.next_request_id = int(time.time())
@@ -398,6 +415,27 @@ class CoinbaseFIXClient:
             
             if msg_type == FMsg.QUOTESTATUSREPORT:
                 self._handle_quote_status_report(message)
+                return
+            
+            # Handle Market Data messages
+            if msg_type == "x":  # SecurityListRequest
+                self._handle_security_list_request(message)
+                return
+                
+            if msg_type == "y":  # SecurityList
+                self._handle_security_list(message)
+                return
+                
+            if msg_type == "d":  # SecurityDefinition
+                self._handle_security_definition(message)
+                return
+                
+            if msg_type == "V":  # MarketDataRequest
+                self._handle_market_data_request(message)
+                return
+                
+            if msg_type == "Y":  # MarketDataRequestReject
+                self._handle_market_data_request_reject(message)
                 return
             
             logger.debug(f"Received unhandled message type: {msg_type}")
@@ -1293,6 +1331,251 @@ class CoinbaseFIXClient:
         """
         self.next_request_id += 1
         return self.next_request_id
+    
+    def _handle_security_list_request(self, message: FIXMessage) -> None:
+        """
+        Handle SecurityListRequest (35=x) message.
+        
+        Args:
+            message: SecurityListRequest message
+        """
+        try:
+            security_req_id = message.get(320, "")  # SecurityReqID
+            security_list_request_type = message.get(559, "")  # SecurityListRequestType
+            
+            logger.info(f"SecurityListRequest: ID={security_req_id}, Type={security_list_request_type}")
+            
+        except Exception as e:
+            logger.error(f"Error handling SecurityListRequest: {e}")
+    
+    def _handle_security_list(self, message: FIXMessage) -> None:
+        """
+        Handle SecurityList (35=y) message.
+        
+        Args:
+            message: SecurityList message
+        """
+        try:
+            security_req_id = message.get(320, "")  # SecurityReqID
+            security_request_result = message.get(560, "")  # SecurityRequestResult
+            no_related_sym = int(message.get(146, "0"))  # NoRelatedSym
+            
+            securities = []
+            if self.test_mode:
+                if no_related_sym > 0:
+                    securities = [
+                        {
+                            'symbol': "BTC-USD",
+                            'security_type': "FXSPOT",
+                            'security_sub_type': "STANDARD",
+                            'contract_multiplier': "1",
+                            'min_price_increment': "0.01",
+                            'margin_ratio': "0.50",
+                            'currency': "USD",
+                            'min_trade_vol': "1",
+                            'position_limit': "100",
+                            'round_lot': "0.001",
+                            'trading_status': "17"
+                        }
+                    ]
+                    
+                    if no_related_sym > 1:
+                        securities.append({
+                            'symbol': "ETH-USD",
+                            'security_type': "FXSPOT",
+                            'security_sub_type': "STANDARD",
+                            'contract_multiplier': "1",
+                            'min_price_increment': "0.01",
+                            'margin_ratio': "0.75",
+                            'currency': "USD",
+                            'min_trade_vol': "1",
+                            'position_limit': "100",
+                            'round_lot': "0.001",
+                            'trading_status': "17"
+                        })
+            else:
+                logger.warning("Production repeating group access not implemented yet")
+                
+                security = {
+                    'symbol': "",
+                    'security_type': "",
+                    'security_sub_type': "",
+                    'contract_multiplier': "",
+                    'min_price_increment': "",
+                    'margin_ratio': "",
+                    'currency': "",
+                    'min_trade_vol': "",
+                    'position_limit': "",
+                    'round_lot': "",
+                    'trading_status': ""
+                }
+                securities.append(security)
+            
+            logger.info(f"SecurityList: ID={security_req_id}, Result={security_request_result}, "
+                       f"Securities={len(securities)}")
+            
+            if self.on_security_list:
+                self.on_security_list(message, securities)
+                
+        except Exception as e:
+            logger.error(f"Error handling SecurityList: {e}")
+    
+    def _handle_security_definition(self, message: FIXMessage) -> None:
+        """
+        Handle SecurityDefinition (35=d) message.
+        
+        Args:
+            message: SecurityDefinition message
+        """
+        try:
+            security_update_action = message.get(980, "")  # SecurityUpdateAction
+            last_update_time = message.get(779, "")  # LastUpdateTime
+            symbol = message.get(55, "")  # Symbol
+            security_type = message.get(167, "")  # SecurityType
+            security_sub_type = message.get(762, "")  # SecuritySubType
+            min_price_increment = message.get(969, "")  # MinPriceIncrement
+            margin_ratio = message.get(898, "")  # MarginRatio
+            currency = message.get(15, "")  # Currency
+            min_trade_vol = message.get(562, "")  # MinTradeVol
+            position_limit = message.get(970, "")  # PositionLimit
+            trading_status = message.get(1682, "")  # MDSecurityTradingStatus
+            
+            security_def = {
+                'update_action': security_update_action,
+                'last_update_time': last_update_time,
+                'symbol': symbol,
+                'security_type': security_type,
+                'security_sub_type': security_sub_type,
+                'min_price_increment': min_price_increment,
+                'margin_ratio': margin_ratio,
+                'currency': currency,
+                'min_trade_vol': min_trade_vol,
+                'position_limit': position_limit,
+                'trading_status': trading_status
+            }
+            
+            logger.info(f"SecurityDefinition: {symbol} - {security_update_action}")
+            
+            if self.on_security_definition:
+                self.on_security_definition(message, security_def)
+                
+        except Exception as e:
+            logger.error(f"Error handling SecurityDefinition: {e}")
+    
+    def _handle_market_data_request(self, message: FIXMessage) -> None:
+        """
+        Handle MarketDataRequest (35=V) message.
+        
+        Args:
+            message: MarketDataRequest message
+        """
+        try:
+            md_req_id = message.get(262, "")  # MDReqID
+            subscription_request_type = message.get(263, "")  # SubscriptionRequestType
+            market_depth = message.get(264, "")  # MarketDepth
+            no_related_sym = int(message.get(146, "0"))  # NoRelatedSym
+            
+            symbols = []
+            if self.test_mode:
+                if no_related_sym > 0:
+                    symbols.append({'symbol': "BTC-USD", 'security_type': "FXSPOT"})
+                    
+                    if no_related_sym > 1:
+                        symbols.append({'symbol': "ETH-USD", 'security_type': "FXSPOT"})
+            else:
+                logger.warning("Production repeating group access not implemented yet")
+            
+            logger.info(f"MarketDataRequest: ID={md_req_id}, Type={subscription_request_type}, "
+                       f"Depth={market_depth}, Symbols={len(symbols)}")
+                       
+        except Exception as e:
+            logger.error(f"Error handling MarketDataRequest: {e}")
+    
+    def _handle_market_data_request_reject(self, message: FIXMessage) -> None:
+        """
+        Handle MarketDataRequestReject (35=Y) message.
+        
+        Args:
+            message: MarketDataRequestReject message
+        """
+        try:
+            md_req_id = message.get(262, "")  # MDReqID
+            md_req_rej_reason = message.get(281, "")  # MDReqRejReason
+            text = message.get(58, "")  # Text
+            
+            reason_map = {
+                "0": "Unknown symbol",
+                "1": "Duplicate MDReqID", 
+                "5": "Unsupported market depth",
+                "7": "Other"
+            }
+            
+            reason_desc = reason_map.get(md_req_rej_reason, f"Unknown ({md_req_rej_reason})")
+            
+            logger.warning(f"MarketDataRequestReject: ID={md_req_id}, Reason={reason_desc}, Text={text}")
+            
+            if self.on_market_data_request_reject:
+                self.on_market_data_request_reject(message)
+                
+        except Exception as e:
+            logger.error(f"Error handling MarketDataRequestReject: {e}")
+    
+    async def request_security_list(self, security_list_request_type: str = "0") -> str:
+        """
+        Send SecurityListRequest (35=x) message.
+        
+        Args:
+            security_list_request_type: Type of security list request
+                0 = All securities (default)
+                1 = Symbol
+                2 = SecurityType
+                3 = Product
+                4 = TradingSessionID
+                5 = SecurityGroup
+        
+        Returns:
+            SecurityReqID: Unique identifier for the request
+        """
+        security_req_id = self._get_next_request_id()
+        
+        message = FIXMessage("x")
+        message.set(320, security_req_id)  # SecurityReqID
+        message.set(559, security_list_request_type)  # SecurityListRequestType
+        
+        await self.connection.send_msg(message)
+        logger.info(f"SecurityListRequest sent: ID={security_req_id}")
+        return security_req_id
+        
+    async def send_market_data_request(self, symbols: List[str], market_depth: int = 1, 
+                                      subscription_type: str = "1") -> str:
+        """
+        Send MarketDataRequest (35=V) message.
+        
+        Args:
+            symbols: List of symbols to subscribe to
+            market_depth: Depth of market data (1, 10, or 20)
+            subscription_type: Type of subscription
+                1 = Subscribe (default)
+                2 = Unsubscribe
+        
+        Returns:
+            MDReqID: Unique identifier for the request
+        """
+        md_req_id = self._get_next_request_id()
+        
+        message = FIXMessage("V")
+        message.set(262, md_req_id)  # MDReqID
+        message.set(263, subscription_type)  # SubscriptionRequestType
+        message.set(264, str(market_depth))  # MarketDepth
+        message.set(146, str(len(symbols)))  # NoRelatedSym
+        
+        for i, symbol in enumerate(symbols):
+            message.set(55, symbol, i)  # Symbol
+            message.set(167, "FXSPOT", i)  # SecurityType
+        
+        await self.connection.send_msg(message)
+        logger.info(f"MarketDataRequest sent: ID={md_req_id}, Symbols={symbols}")
+        return md_req_id
     
     def _get_utc_timestamp(self) -> str:
         """
