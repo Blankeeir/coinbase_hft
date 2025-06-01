@@ -204,8 +204,18 @@ class CoinbaseFIXClient:
                     logger.info(f"[TEST MODE] Simulated successful authentication for {self.session_type} session")
                     return True
                 else:
-                    # Authenticate immediately after socket connection
-                    logger.info(f"Sending Logon message immediately after socket connection")
+                    logger.info(f"Waiting for socket to reach NETWORK_CONN_ESTABLISHED state")
+                    if not await self._wait_for_network():
+                        logger.error("Socket never reached NETWORK_CONN_ESTABLISHED state")
+                        self.connected = False
+                        if attempt < max_retries:
+                            backoff = retry_delay * (2 ** (attempt - 1))
+                            logger.info(f"Retrying in {backoff} seconds...")
+                            await asyncio.sleep(backoff)
+                        continue
+                    
+                    # Now authenticate with Logon message
+                    logger.info(f"Socket ready, sending Logon message")
                     auth_success = await self._authenticate()
                 if not auth_success:
                     logger.error("Failed to send authentication request")
@@ -1694,6 +1704,23 @@ class CoinbaseFIXClient:
         logger.info(f"MarketDataRequest sent: ID={md_req_id}, Symbols={symbols}")
         return md_req_id
     
+    async def _wait_for_network(self, timeout: float = 5.0) -> bool:
+        """
+        Wait for the socket connection to reach NETWORK_CONN_ESTABLISHED state.
+        
+        Args:
+            timeout: Maximum time to wait in seconds
+            
+        Returns:
+            bool: True if the socket reached the required state, False if timed out
+        """
+        start = time.monotonic()
+        while self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
+            if time.monotonic() - start > timeout:
+                return False  # give up – socket never came up
+            await asyncio.sleep(0.05)
+        return True
+        
     def _get_utc_timestamp(self) -> str:
         """
         Generate UTC timestamp in FIX format.
