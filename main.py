@@ -26,7 +26,7 @@ class HFTBot:
     High-Frequency Trading Bot for Coinbase International Exchange.
     Coordinates all components and runs the main trading loop.
     """
-    def __init__(self, symbol: str, window: int = None, threshold: float = None):
+    def __init__(self, symbol: str, window: int = None, threshold: float = None, test_mode: bool = False):
         """
         Initialize the HFT bot.
         
@@ -34,6 +34,7 @@ class HFTBot:
             symbol: Trading symbol (e.g., 'BTC-USD')
             window: Channel window in seconds (overrides config)
             threshold: OBI threshold (overrides config)
+            test_mode: Run in test mode without real connection
         """
         self.symbol = symbol
         
@@ -41,18 +42,21 @@ class HFTBot:
             config.CHANNEL_WINDOW = window
         if threshold is not None:
             config.OBI_THRESHOLD = threshold
-        
+            
+        self.test_mode = test_mode
         self.data_handler = DataHandler()
         
         self.market_data_client = CoinbaseFIXClient(
             session_type="market_data",
             on_market_data=self._on_market_data,
+            test_mode=self.test_mode,
         )
         
         self.order_entry_client = CoinbaseFIXClient(
             session_type="order_entry",
             on_execution_report=self._on_execution_report,
             on_position_report=self._on_position_report,
+            test_mode=self.test_mode,
         )
         
         self.strategy = ChannelBreakoutStrategy(symbol, self.data_handler)
@@ -336,12 +340,14 @@ async def main():
         parser.add_argument("--symbol", type=str, default=config.TRADING_SYMBOL, help="Trading symbol (e.g., 'BTC-USD')")
         parser.add_argument("--window", type=int, help="Channel window in seconds")
         parser.add_argument("--threshold", type=float, help="OBI threshold")
+        parser.add_argument("--test", action="store_true", help="Run in test mode without real connection")
         args = parser.parse_args()
         
         bot = HFTBot(
             symbol=args.symbol,
             window=args.window,
             threshold=args.threshold,
+            test_mode=args.test,
         )
         
         await bot.run()

@@ -34,6 +34,7 @@ class CoinbaseFIXClient:
         on_execution_report: Optional[Callable[[FIXMessage], None]] = None,
         on_market_data: Optional[Callable[[FIXMessage], None]] = None,
         on_position_report: Optional[Callable[[FIXMessage], None]] = None,
+        test_mode: bool = False,
     ):
         """
         Initialize the FIX client.
@@ -43,11 +44,13 @@ class CoinbaseFIXClient:
             on_execution_report: Callback for execution reports
             on_market_data: Callback for market data messages
             on_position_report: Callback for position reports
+            test_mode: Run in test mode without real connection
         """
         self.session_type = session_type
         self.on_execution_report = on_execution_report
         self.on_market_data = on_market_data
         self.on_position_report = on_position_report
+        self.test_mode = test_mode
         
         if session_type == "order_entry":
             self.host = config.FIX_ORDER_ENTRY_HOST
@@ -83,6 +86,12 @@ class CoinbaseFIXClient:
         Returns:
             bool: True if connection and authentication successful
         """
+        if self.test_mode:
+            logger.info(f"Test mode enabled for {self.session_type} session")
+            self.connected = True
+            self.authenticated = True
+            return True
+            
         try:
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
@@ -330,6 +339,10 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "market_data":
             logger.error("Cannot subscribe to market data: Not authenticated or wrong session type")
             return False
+            
+        if self.test_mode:
+            logger.info(f"Test mode: Simulating market data subscription for {symbol}")
+            return True
         
         try:
             req_id = str(self._get_next_request_id())
@@ -371,6 +384,10 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "market_data":
             logger.error("Cannot unsubscribe from market data: Not authenticated or wrong session type")
             return False
+            
+        if self.test_mode:
+            logger.info(f"Test mode: Simulating market data unsubscription for {symbol}")
+            return True
         
         try:
             req_id = str(self._get_next_request_id())
@@ -419,6 +436,11 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "order_entry":
             logger.error("Cannot place order: Not authenticated or wrong session type")
             return ""
+            
+        if self.test_mode:
+            client_order_id = order_id or f"TEST-{self._get_next_client_order_id()}"
+            logger.info(f"Test mode: Simulating {order_type} {side} order for {quantity} {symbol} at price {price}")
+            return client_order_id
         
         try:
             client_order_id = order_id or f"{self.sender_comp_id}-{self._get_next_client_order_id()}"
@@ -488,6 +510,11 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "order_entry":
             logger.error("Cannot cancel order: Not authenticated or wrong session type")
             return ""
+            
+        if self.test_mode:
+            cancel_client_order_id = f"TEST-C-{self._get_next_client_order_id()}"
+            logger.info(f"Test mode: Simulating cancel for order {client_order_id} with cancel ID {cancel_client_order_id}")
+            return cancel_client_order_id
         
         try:
             cancel_client_order_id = f"C-{self._get_next_client_order_id()}"
@@ -519,6 +546,10 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "order_entry":
             logger.error("Cannot request positions: Not authenticated or wrong session type")
             return False
+            
+        if self.test_mode:
+            logger.info("Test mode: Simulating position request")
+            return True
         
         try:
             req_id = str(self._get_next_request_id())
