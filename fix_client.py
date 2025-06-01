@@ -266,8 +266,11 @@ class CoinbaseFIXClient:
                 logger.error("Cannot authenticate: Missing API credentials")
                 return False
                 
-            timestamp = str(int(time.time()))
-            message = f"{timestamp}A{config.CB_INTX_SENDER_COMPID}{self.target_comp_id}"
+            # Generate UTC timestamp in milliseconds format
+            utc_timestamp = self._get_utc_timestamp()
+            
+            # Signature format: Time + Client API Key + Session + Passphrase
+            message = f"{utc_timestamp}{self.api_key}{self.target_comp_id}{self.passphrase}"
             
             signature = hmac.new(
                 base64.b64decode(self.api_secret),
@@ -279,12 +282,14 @@ class CoinbaseFIXClient:
             logon_msg.set(FTag.EncryptMethod, "0")  # No encryption
             logon_msg.set(FTag.HeartBtInt, str(config.FIX_HEARTBEAT_INTERVAL))
             logon_msg.set(FTag.ResetSeqNumFlag, "Y")  # Reset sequence numbers
+            logon_msg.set(FTag.Username, self.api_key)  # Tag 553: API Key
+            logon_msg.set(FTag.Password, self.passphrase)  # Tag 554: Passphrase
+            logon_msg.set(FTag.Text, signature)  # Tag 58: HMAC signature
+            logon_msg.set(1137, "9")  # DefaultApplVerID = FIX.5.0SP2
             
-            logon_msg.set(8013, self.api_key)       # CB API Key
-            logon_msg.set(8014, signature)          # CB API Sign
-            logon_msg.set(8015, timestamp)          # CB API Timestamp
-            logon_msg.set(8016, self.passphrase)    # CB API Passphrase
-            logon_msg.set(1137, "9")                # DefaultApplVerID = FIX.5.0SP2
+            logon_msg.set(8001, "Q")  # DefaultSelfTradePreventionStrategy: Cancel both orders
+            logon_msg.set(8013, "Y")  # CancelOrdersOnDisconnect: Only cancel orders from this session
+            logon_msg.set(8014, "Y")  # CancelOrdersOnInternalDisconnect: Cancel on internal disconnect
             
             logger.debug(f"Sending authentication request for {self.session_type} session")
             await self.connection.send_msg(logon_msg)
