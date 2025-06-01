@@ -1704,7 +1704,7 @@ class CoinbaseFIXClient:
         logger.info(f"MarketDataRequest sent: ID={md_req_id}, Symbols={symbols}")
         return md_req_id
     
-    async def _wait_for_network(self, timeout: float = 5.0) -> bool:
+    async def _wait_for_network(self, timeout: float = 15.0) -> bool:
         """
         Wait for the socket connection to reach NETWORK_CONN_ESTABLISHED state.
         
@@ -1715,10 +1715,22 @@ class CoinbaseFIXClient:
             bool: True if the socket reached the required state, False if timed out
         """
         start = time.monotonic()
+        last_state = -1
+        
         while self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
+            current_state = self.connection.connection_state
+            
+            if current_state != last_state:
+                logger.info(f"Socket state changed: {last_state} -> {current_state}")
+                last_state = current_state
+            
             if time.monotonic() - start > timeout:
+                logger.error(f"Socket connection timeout after {timeout}s, final state: {current_state}")
                 return False  # give up – socket never came up
-            await asyncio.sleep(0.05)
+                
+            await asyncio.sleep(0.1)
+            
+        logger.info(f"Socket reached NETWORK_CONN_ESTABLISHED state in {time.monotonic() - start:.2f}s")
         return True
         
     def _get_utc_timestamp(self) -> str:
