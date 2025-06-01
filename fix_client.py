@@ -65,7 +65,15 @@ class CoinbaseFIXClient:
             raise ValueError(f"Invalid session type: {session_type}")
         
         self.sender_comp_id = config.CB_INTX_SENDER_COMPID
-        self.target_comp_id = config.FIX_TARGET_COMPID
+        
+        if session_type == "order_entry":
+            self.target_comp_id = config.FIX_TARGET_COMPID_ORDER_ENTRY
+        elif session_type == "market_data":
+            self.target_comp_id = config.FIX_TARGET_COMPID_MARKET_DATA
+        elif session_type == "drop_copy":
+            self.target_comp_id = config.FIX_TARGET_COMPID_DROP_COPY
+        else:
+            raise ValueError(f"Invalid session type: {session_type}")
         self.api_key = config.CB_INTX_API_KEY
         self.api_secret = config.CB_INTX_API_SECRET
         self.passphrase = config.CB_INTX_PASSPHRASE
@@ -108,6 +116,7 @@ class CoinbaseFIXClient:
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
+                ssl_context.set_ciphers('ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384')
                 
                 self.protocol = FIXProtocol44()  # Using FIX 4.4 protocol as base for FIX 5.0
                 
@@ -258,7 +267,7 @@ class CoinbaseFIXClient:
                 return False
                 
             timestamp = str(int(time.time()))
-            message = f"{timestamp}A{config.CB_INTX_SENDER_COMPID}COINBASE"
+            message = f"{timestamp}A{config.CB_INTX_SENDER_COMPID}{self.target_comp_id}"
             
             signature = hmac.new(
                 base64.b64decode(self.api_secret),
