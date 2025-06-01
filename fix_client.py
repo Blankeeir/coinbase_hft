@@ -143,9 +143,10 @@ class CoinbaseFIXClient:
                 if attempt > 1:
                     logger.info(f"Connection attempt {attempt}/{max_retries} for {self.session_type} session")
                 
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
+                # Create SSL context for secure connection
+                self.ssl_context = ssl.create_default_context()
+                self.ssl_context.check_hostname = False
+                self.ssl_context.verify_mode = ssl.CERT_NONE
                 
                 self.protocol = FIXProtocol44()  # Using FIX 4.4 protocol as base for FIX 5.0
                 
@@ -166,14 +167,16 @@ class CoinbaseFIXClient:
                 self.journaler = Journaler(db_path)
                 logger.debug(f"Created new journaler with database: {db_path}")
                 
-                # Create AsyncFIXConnection
-                self.connection = AsyncFIXConnection(
+                from custom_connection import SSLAsyncFIXConnection
+                
+                self.connection = SSLAsyncFIXConnection(
                     protocol=self.protocol,
                     sender_comp_id=self.sender_comp_id,
                     target_comp_id=self.target_comp_id,
                     journaler=self.journaler,
                     host=self.host,
                     port=self.port,
+                    ssl_context=self.ssl_context,
                     heartbeat_period=config.FIX_HEARTBEAT_INTERVAL,
                     logger=logger,
                 )
@@ -185,9 +188,20 @@ class CoinbaseFIXClient:
                         self.connected = True
                         logger.info(f"[TEST MODE] Simulated connection to {self.host}:{self.port} for {self.session_type} session")
                     else:
-                        await self.connection.connect()
+                        await self.connection.connect(ssl=self.ssl_context)
                         self.connected = True
                         logger.info(f"Connected to {self.host}:{self.port} for {self.session_type} session")
+                        
+                        # Authenticate immediately after connection
+                        logger.info(f"Socket ready, sending Logon message")
+                        auth_success = await self._authenticate()
+                        if not auth_success:
+                            logger.error(f"Failed to authenticate for {self.session_type} session")
+                            if attempt < max_retries:
+                                backoff = retry_delay * (2 ** (attempt - 1))
+                                logger.info(f"Retrying in {backoff} seconds...")
+                                await asyncio.sleep(backoff)
+                            continue
                 except Exception as e:
                     logger.error(f"Connection error details: {str(e)}")
                     if "SSL" in str(e) or "TLS" in str(e):
@@ -203,20 +217,7 @@ class CoinbaseFIXClient:
                     self.authenticated = True
                     logger.info(f"[TEST MODE] Simulated successful authentication for {self.session_type} session")
                     return True
-                else:
-                    logger.info(f"Waiting for socket to reach NETWORK_CONN_ESTABLISHED state")
-                    if not await self._wait_for_network():
-                        logger.error("Socket never reached NETWORK_CONN_ESTABLISHED state")
-                        self.connected = False
-                        if attempt < max_retries:
-                            backoff = retry_delay * (2 ** (attempt - 1))
-                            logger.info(f"Retrying in {backoff} seconds...")
-                            await asyncio.sleep(backoff)
-                        continue
-                    
-                    # Now authenticate with Logon message
-                    logger.info(f"Socket ready, sending Logon message")
-                    auth_success = await self._authenticate()
+                
                 if not auth_success:
                     logger.error("Failed to send authentication request")
                     if attempt < max_retries:
@@ -291,33 +292,60 @@ class CoinbaseFIXClient:
                 logger.error("Cannot authenticate: Missing API credentials")
                 return False
                 
-            # Generate UTC timestamp in milliseconds format
+            # Generate UTC timestamp in ISO format
             utc_timestamp = self._get_utc_timestamp()
+            logger.info(f"Using timestamp for authentication: {utc_timestamp}")
             
-            # Signature format: Time + Client API Key + Session + Passphrase
+            # Signature format per Coinbase docs: timestamp + api_key + target_comp_id + passphrase
             message = f"{utc_timestamp}{self.api_key}{self.target_comp_id}{self.passphrase}"
+            logger.info(f"Authentication message components: timestamp={utc_timestamp}, api_key={self.api_key[:4]}..., target_comp_id={self.target_comp_id}, passphrase=***")
             
-            signature = hmac.new(
-                base64.b64decode(self.api_secret),
-                message.encode('utf-8'),
-                hashlib.sha256
-            ).hexdigest()
+            # Decode the API secret from base64 and create HMAC signature
+            try:
+                try:
+                    decoded_secret = base64.b64decode(self.api_secret)
+                    logger.info(f"Decoded API secret length: {len(decoded_secret)} bytes")
+                except Exception as e:
+                    logger.error(f"Failed to decode API secret: {e}")
+                    return False
+                
+                signature = base64.b64encode(
+                    hmac.new(
+                        decoded_secret,
+                        message.encode('utf-8'),
+                        hashlib.sha256
+                    ).digest()
+                ).decode('utf-8')
+                
+                logger.info(f"Generated signature: {signature[:10]}...")
+            except Exception as e:
+                logger.error(f"Error generating signature: {e}")
+                return False
             
-            logon_msg = FIXMessage(FMsg.LOGON)
-            logon_msg.set(FTag.EncryptMethod, "0")  # No encryption
-            logon_msg.set(FTag.HeartBtInt, str(config.FIX_HEARTBEAT_INTERVAL))
-            logon_msg.set(FTag.ResetSeqNumFlag, "Y")  # Reset sequence numbers
-            logon_msg.set(FTag.Username, self.api_key)  # Tag 553: API Key
-            logon_msg.set(FTag.Password, self.passphrase)  # Tag 554: Passphrase
-            logon_msg.set(FTag.Text, signature)  # Tag 58: HMAC signature
+            logger.debug(f"Generated signature: {signature[:10]}...")
+            
+            # Create Logon message
+            logon_msg = FIXMessage("A")  # Logon message type
+            logon_msg.set(98, "0")  # EncryptMethod: No encryption (Tag 98)
+            logon_msg.set(108, "30")  # HeartBtInt: 30s per Coinbase docs (Tag 108)
+            logon_msg.set(141, "Y")  # ResetSeqNumFlag: Reset sequence numbers (Tag 141)
+            
+            # Authentication fields - match official Coinbase sample scripts
+            logon_msg.set(553, self.api_key)  # Username: API Key (Tag 553)
+            logon_msg.set(554, self.passphrase)  # Password: Passphrase (Tag 554)
+            logon_msg.set(95, str(len(signature)))  # RawDataLength: Length of signature (Tag 95)
+            logon_msg.set(96, signature)  # RawData: HMAC signature (Tag 96)
+            logon_msg.set(58, utc_timestamp)  # Text: Timestamp used for signature (Tag 58)
             logon_msg.set(1137, "9")  # DefaultApplVerID = FIX.5.0SP2
             
-            logon_msg.set(8001, "Q")  # DefaultSelfTradePreventionStrategy: Cancel both orders
-            logon_msg.set(8013, "Y")  # CancelOrdersOnDisconnect: Only cancel orders from this session
-            logon_msg.set(8014, "Y")  # CancelOrdersOnInternalDisconnect: Cancel on internal disconnect
+            logon_msg.set(8013, "N")  # CancelOrdersOnDisconnect: Don't cancel orders on disconnect
+            logon_msg.set(8014, "N")  # CancelOrdersOnInternalDisconnect: Don't cancel on internal disconnect
             
-            logger.debug(f"Sending authentication request for {self.session_type} session")
+            logger.info(f"Sending Logon message for {self.session_type} session with fields: {logon_msg}")
+            
+            # Send the Logon message
             await self.connection.send_msg(logon_msg)
+            logger.info(f"Logon message sent, waiting for response...")
             
             # Return True to indicate the authentication request was sent successfully
             return True
@@ -334,63 +362,63 @@ class CoinbaseFIXClient:
             message: FIX message
         """
         try:
-            msg_type = message.get(FTag.MsgType)
+            msg_type = message.get(35)  # MsgType (tag 35)
             
-            if msg_type == FMsg.LOGON:
+            if msg_type == "A":  # Logon
                 self.authenticated = True
                 logger.info(f"Logon successful for {self.session_type} session")
                 return
             
-            if msg_type == FMsg.LOGOUT:
-                text = message.get(FTag.Text, "No reason provided")
+            if msg_type == "5":  # Logout
+                text = message.get(58, "No reason provided")  # Text (tag 58)
                 logger.warning(f"Received Logout: {text}")
                 self.authenticated = False
                 return
             
-            if msg_type == FMsg.HEARTBEAT:
+            if msg_type == "0":  # Heartbeat
                 return  # Silently process heartbeats
             
-            if msg_type == FMsg.TESTREQUEST:
+            if msg_type == "1":  # TestRequest
                 self._handle_test_request(message)
                 return
             
-            if msg_type == FMsg.REJECT:
+            if msg_type == "3":  # Reject
                 self._handle_reject(message)
                 return
             
-            if msg_type == FMsg.BUSINESSMESSAGEREJECT:
+            if msg_type == "j":  # BusinessMessageReject
                 self._handle_business_reject(message)
                 return
             
-            if msg_type == FMsg.EXECUTIONREPORT and self.on_execution_report:
+            if msg_type == "8" and self.on_execution_report:  # ExecutionReport
                 self._log_execution_report(message)
                 self.on_execution_report(message)
                 return
             
-            if msg_type == FMsg.MARKETDATASNAPSHOTFULLREFRESH and self.on_market_data:
+            if msg_type == "W" and self.on_market_data:  # MarketDataSnapshotFullRefresh
                 self.on_market_data(message)
                 return
             
-            if msg_type == FMsg.MARKETDATAINCREMENTALREFRESH and self.on_market_data:
+            if msg_type == "X" and self.on_market_data:  # MarketDataIncrementalRefresh
                 self.on_market_data(message)
                 return
             
-            if msg_type == FMsg.POSITIONREPORT and self.on_position_report:
+            if msg_type == "AP" and self.on_position_report:  # PositionReport
                 self.on_position_report(message)
                 return
             
             # Handle OrderMassCancelReport
-            if msg_type == FMsg.ORDERMASSCANCELREPORT:
+            if msg_type == "r":  # OrderMassCancelReport
                 self._handle_order_mass_cancel_report(message)
                 return
             
             # Handle OrderCancelReject
-            if msg_type == FMsg.ORDERCANCELREJECT:
+            if msg_type == "9":  # OrderCancelReject
                 self._handle_order_cancel_reject(message)
                 return
             
             # Handle TradeCaptureReport
-            if msg_type == FMsg.TRADECAPTUREREPORT:
+            if msg_type == "AE":  # TradeCaptureReport
                 self._handle_trade_capture_report(message)
                 return
             
@@ -446,11 +474,11 @@ class CoinbaseFIXClient:
             message: Test Request message
         """
         try:
-            test_req_id = message.get(FTag.TestReqID, "")
+            test_req_id = message.get(112, "")  # TestReqID (tag 112)
             
-            heartbeat = FIXMessage(FMsg.HEARTBEAT)
+            heartbeat = FIXMessage("0")  # Heartbeat (MsgType 0)
             if test_req_id:
-                heartbeat.set(FTag.TestReqID, test_req_id)
+                heartbeat.set(112, test_req_id)  # TestReqID (tag 112)
             
             asyncio.create_task(self.connection.send_msg(heartbeat))
             
@@ -1706,7 +1734,8 @@ class CoinbaseFIXClient:
     
     async def _wait_for_network(self, timeout: float = 15.0) -> bool:
         """
-        Wait for the socket connection to reach NETWORK_CONN_ESTABLISHED state.
+        Monitor socket connection state changes without blocking authentication.
+        This is a helper method for logging state transitions only.
         
         Args:
             timeout: Maximum time to wait in seconds
@@ -1714,23 +1743,13 @@ class CoinbaseFIXClient:
         Returns:
             bool: True if the socket reached the required state, False if timed out
         """
+        
         start = time.monotonic()
         last_state = -1
+        current_state = self.connection.connection_state
         
-        while self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
-            current_state = self.connection.connection_state
-            
-            if current_state != last_state:
-                logger.info(f"Socket state changed: {last_state} -> {current_state}")
-                last_state = current_state
-            
-            if time.monotonic() - start > timeout:
-                logger.error(f"Socket connection timeout after {timeout}s, final state: {current_state}")
-                return False  # give up – socket never came up
-                
-            await asyncio.sleep(0.1)
-            
-        logger.info(f"Socket reached NETWORK_CONN_ESTABLISHED state in {time.monotonic() - start:.2f}s")
+        logger.info(f"Initial socket state: {current_state}")
+        
         return True
         
     def _get_utc_timestamp(self) -> str:
