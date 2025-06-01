@@ -35,6 +35,10 @@ class CoinbaseFIXClient:
         on_execution_report: Optional[Callable[[FIXMessage], None]] = None,
         on_market_data: Optional[Callable[[FIXMessage], None]] = None,
         on_position_report: Optional[Callable[[FIXMessage], None]] = None,
+        on_order_cancel_reject: Optional[Callable[[FIXMessage], None]] = None,
+        on_trade_capture_report: Optional[Callable[[FIXMessage], None]] = None,
+        on_quote_request: Optional[Callable[[FIXMessage], None]] = None,
+        on_quote: Optional[Callable[[FIXMessage], None]] = None,
         test_mode: bool = False,
     ):
         """
@@ -45,12 +49,20 @@ class CoinbaseFIXClient:
             on_execution_report: Callback for execution reports
             on_market_data: Callback for market data messages
             on_position_report: Callback for position reports
+            on_order_cancel_reject: Callback for order cancel reject messages
+            on_trade_capture_report: Callback for trade capture reports
+            on_quote_request: Callback for quote requests
+            on_quote: Callback for quote messages
             test_mode: Run in test mode without real connection
         """
         self.session_type = session_type
         self.on_execution_report = on_execution_report
         self.on_market_data = on_market_data
         self.on_position_report = on_position_report
+        self.on_order_cancel_reject = on_order_cancel_reject
+        self.on_trade_capture_report = on_trade_capture_report
+        self.on_quote_request = on_quote_request
+        self.on_quote = on_quote
         self.test_mode = test_mode
         
         if session_type == "order_entry":
@@ -355,6 +367,39 @@ class CoinbaseFIXClient:
                 self.on_position_report(message)
                 return
             
+            # Handle OrderMassCancelReport
+            if msg_type == FMsg.ORDERMASSCANCELREPORT:
+                self._handle_order_mass_cancel_report(message)
+                return
+            
+            # Handle OrderCancelReject
+            if msg_type == FMsg.ORDERCANCELREJECT:
+                self._handle_order_cancel_reject(message)
+                return
+            
+            # Handle TradeCaptureReport
+            if msg_type == FMsg.TRADECAPTUREREPORT:
+                self._handle_trade_capture_report(message)
+                return
+            
+            # Handle PreFill messages
+            if msg_type == "F7":  # PreFillRequestSuccess
+                self._handle_prefill_request_success(message)
+                return
+            
+            if msg_type == "F8":  # PreFillReport
+                self._handle_prefill_report(message)
+                return
+            
+            # Handle RFQ/Quote messages
+            if msg_type == FMsg.QUOTEREQUEST:
+                self._handle_quote_request(message)
+                return
+            
+            if msg_type == FMsg.QUOTESTATUSREPORT:
+                self._handle_quote_status_report(message)
+                return
+            
             logger.debug(f"Received unhandled message type: {msg_type}")
             
         except Exception as e:
@@ -457,6 +502,348 @@ class CoinbaseFIXClient:
         except Exception as e:
             logger.error(f"Error logging execution report: {e}")
     
+    def _handle_order_mass_cancel_report(self, message: FIXMessage) -> None:
+        """
+        Handle OrderMassCancelReport (35=r).
+        
+        Args:
+            message: OrderMassCancelReport message
+        """
+        try:
+            clord_id = message.get(FTag.ClOrdID, "")
+            mass_action_report_id = message.get(1369, "")
+            symbol = message.get(FTag.Symbol, "")
+            side = message.get(FTag.Side, "")
+            mass_cancel_response = message.get(531, "")
+            total_affected_orders = message.get(533, "0")
+            
+            response_map = {
+                "0": "Cancel Request Rejected",
+                "7": "Cancel All Orders"
+            }
+            
+            response_desc = response_map.get(mass_cancel_response, mass_cancel_response)
+            
+            if mass_cancel_response == "0":
+                reject_reason = message.get(532, "0")
+                reject_reason_map = {
+                    "0": "Mass Cancel Not Supported",
+                    "1": "Invalid or unknown Security",
+                    "99": "Other"
+                }
+                reject_desc = reject_reason_map.get(reject_reason, reject_reason)
+                logger.warning(f"Mass Cancel Rejected: {clord_id} - {reject_desc}")
+            else:
+                logger.info(f"Mass Cancel Report: {clord_id} {symbol} {side} - {response_desc}, "
+                          f"Affected: {total_affected_orders} orders")
+            
+        except Exception as e:
+            logger.error(f"Error handling mass cancel report: {e}")
+    
+    def _handle_order_cancel_reject(self, message: FIXMessage) -> None:
+        """
+        Handle OrderCancelReject (35=9).
+        
+        Args:
+            message: OrderCancelReject message
+        """
+        try:
+            clord_id = message.get(FTag.ClOrdID, "")
+            orig_clord_id = message.get(FTag.OrigClOrdID, "")
+            order_id = message.get(FTag.OrderID, "")
+            cxl_rej_reason = message.get(102, "")
+            cxl_rej_response_to = message.get(434, "")
+            text = message.get(FTag.Text, "")
+            
+            reason_map = {
+                "0": "Too late to cancel",
+                "1": "Unknown order",
+                "3": "Order already pending cancel or cancel replace"
+            }
+            
+            response_map = {
+                "1": "Order Cancel Request",
+                "2": "Order Cancel/Replace Request"
+            }
+            
+            reason_desc = reason_map.get(cxl_rej_reason, cxl_rej_reason)
+            response_desc = response_map.get(cxl_rej_response_to, cxl_rej_response_to)
+            
+            logger.warning(f"Order Cancel Reject: {clord_id} (orig: {orig_clord_id}) - "
+                         f"{reason_desc} for {response_desc}. Text: {text}")
+            
+            if self.on_order_cancel_reject:
+                self.on_order_cancel_reject(message)
+            
+        except Exception as e:
+            logger.error(f"Error handling order cancel reject: {e}")
+    
+    def _handle_trade_capture_report(self, message: FIXMessage) -> None:
+        """
+        Handle TradeCaptureReport (35=AE).
+        
+        Args:
+            message: TradeCaptureReport message
+        """
+        try:
+            trd_type = message.get(828, "")
+            exec_id = message.get(FTag.ExecID, "")
+            symbol = message.get(FTag.Symbol, "")
+            last_qty = message.get(32, "")
+            last_px = message.get(31, "")
+            side = ""
+            
+            no_sides = int(message.get(552, "0"))
+            if no_sides > 0:
+                side = message.get(FTag.Side, "")
+            
+            trd_type_map = {
+                "0": "Regular trade",
+                "3": "Transfer"
+            }
+            
+            trd_desc = trd_type_map.get(trd_type, trd_type)
+            
+            if trd_type == "3":
+                transfer_reason = message.get(830, "")
+                logger.info(f"Trade Capture Report: {exec_id} {symbol} {side} - "
+                          f"{trd_desc} ({transfer_reason}), Qty: {last_qty}, Px: {last_px}")
+            else:
+                logger.info(f"Trade Capture Report: {exec_id} {symbol} {side} - "
+                          f"{trd_desc}, Qty: {last_qty}, Px: {last_px}")
+            
+            if self.on_trade_capture_report:
+                self.on_trade_capture_report(message)
+            
+        except Exception as e:
+            logger.error(f"Error handling trade capture report: {e}")
+    
+    def _handle_prefill_request_success(self, message: FIXMessage) -> None:
+        """
+        Handle PreFillRequestSuccess (35=F7).
+        
+        Args:
+            message: PreFillRequestSuccess message
+        """
+        try:
+            prefill_request_id = message.get(22007, "")
+            logger.info(f"PreFill Request Success: {prefill_request_id}")
+            
+        except Exception as e:
+            logger.error(f"Error handling prefill request success: {e}")
+    
+    def _handle_prefill_report(self, message: FIXMessage) -> None:
+        """
+        Handle PreFillReport (35=F8).
+        
+        Args:
+            message: PreFillReport message
+        """
+        try:
+            clord_id = message.get(FTag.ClOrdID, "")
+            order_id = message.get(FTag.OrderID, "")
+            symbol = message.get(FTag.Symbol, "")
+            side = message.get(FTag.Side, "")
+            last_qty = message.get(32, "")
+            last_px = message.get(31, "")
+            last_liquidity_ind = message.get(851, "")
+            
+            liquidity_map = {
+                "1": "Added liquidity",
+                "2": "Removed liquidity"
+            }
+            
+            liquidity_desc = liquidity_map.get(last_liquidity_ind, last_liquidity_ind)
+            
+            logger.info(f"PreFill Report: {clord_id} {symbol} {side} - "
+                      f"Qty: {last_qty}, Px: {last_px}, Liquidity: {liquidity_desc}")
+            
+        except Exception as e:
+            logger.error(f"Error handling prefill report: {e}")
+    
+    def _handle_quote_request(self, message: FIXMessage) -> None:
+        """
+        Handle Quote Request (35=R).
+        
+        Args:
+            message: Quote Request message
+        """
+        try:
+            quote_req_id = message.get(131, "")
+            symbol = message.get(FTag.Symbol, "")
+            order_qty = message.get(FTag.OrderQty, "")
+            valid_until_time = message.get(62, "")
+            expire_time = message.get(126, "")
+            
+            logger.info(f"Quote Request: {quote_req_id} {symbol} - "
+                      f"Qty: {order_qty}, Valid Until: {valid_until_time}")
+            
+            if self.on_quote_request:
+                self.on_quote_request(message)
+            
+        except Exception as e:
+            logger.error(f"Error handling quote request: {e}")
+    
+    def _handle_quote_status_report(self, message: FIXMessage) -> None:
+        """
+        Handle Quote Status Report (35=AI).
+        
+        Args:
+            message: Quote Status Report message
+        """
+        try:
+            quote_req_id = message.get(131, "")
+            quote_id = message.get(117, "")
+            symbol = message.get(FTag.Symbol, "")
+            quote_status = message.get(297, "")
+            
+            status_map = {
+                "5": "Rejected",
+                "7": "Expired", 
+                "16": "Active",
+                "17": "Canceled",
+                "19": "Pending End Trade"
+            }
+            
+            status_desc = status_map.get(quote_status, quote_status)
+            
+            if quote_status == "5":
+                text = message.get(FTag.Text, "")
+                logger.warning(f"Quote Status Report: {quote_id} {symbol} - {status_desc}: {text}")
+            else:
+                logger.info(f"Quote Status Report: {quote_id} {symbol} - {status_desc}")
+            
+            if self.on_quote:
+                self.on_quote(message)
+            
+        except Exception as e:
+            logger.error(f"Error handling quote status report: {e}")
+    
+    async def send_prefill_request(self, prefill_request_id: str = None) -> str:
+        """
+        Send PreFillRequest (35=F6) to subscribe to prefills.
+        
+        Args:
+            prefill_request_id: Client generated ID for the request
+            
+        Returns:
+            str: The prefill request ID used
+        """
+        if not self.authenticated or self.session_type != "order_entry":
+            logger.error("Cannot send prefill request: Not authenticated or wrong session type")
+            return ""
+            
+        if self.test_mode:
+            request_id = prefill_request_id or str(uuid.uuid4())
+            logger.info(f"Test mode: Simulating prefill request with ID {request_id}")
+            return request_id
+        
+        try:
+            request_id = prefill_request_id or str(uuid.uuid4())
+            
+            prefill_req = FIXMessage("F6")  # PreFillRequest
+            prefill_req.set(22007, request_id)  # PreFillRequestID
+            
+            await self.connection.send_msg(prefill_req)
+            logger.info(f"Sent PreFill Request with ID {request_id}")
+            
+            return request_id
+            
+        except Exception as e:
+            logger.error(f"Error sending prefill request: {e}")
+            return ""
+    
+    async def send_rfq_request(self, rfq_req_id: str = None) -> str:
+        """
+        Send RFQ Request (35=AH) to subscribe to RFQ.
+        
+        Args:
+            rfq_req_id: Unique identifier for RFQ Request
+            
+        Returns:
+            str: The RFQ request ID used
+        """
+        if not self.authenticated or self.session_type != "order_entry":
+            logger.error("Cannot send RFQ request: Not authenticated or wrong session type")
+            return ""
+            
+        if self.test_mode:
+            request_id = rfq_req_id or str(uuid.uuid4())
+            logger.info(f"Test mode: Simulating RFQ request with ID {request_id}")
+            return request_id
+        
+        try:
+            request_id = rfq_req_id or str(uuid.uuid4())
+            
+            rfq_req = FIXMessage("AH")  # RFQRequest
+            rfq_req.set(644, request_id)  # RFQReqID
+            
+            await self.connection.send_msg(rfq_req)
+            logger.info(f"Sent RFQ Request with ID {request_id}")
+            
+            return request_id
+            
+        except Exception as e:
+            logger.error(f"Error sending RFQ request: {e}")
+            return ""
+    
+    async def send_quote(self, quote_req_id: str, symbol: str, bid_px: float = None, 
+                       offer_px: float = None, bid_size: str = None, offer_size: str = None,
+                       portfolio_id: str = None) -> str:
+        """
+        Send Quote (35=S) in response to Quote Request.
+        
+        Args:
+            quote_req_id: Quote request ID from Quote Request
+            symbol: Trading symbol
+            bid_px: Bid price (optional)
+            offer_px: Offer price (optional)
+            bid_size: Bid size (required if bid_px provided)
+            offer_size: Offer size (required if offer_px provided)
+            portfolio_id: Portfolio UUID (optional)
+            
+        Returns:
+            str: Quote ID
+        """
+        if not self.authenticated or self.session_type != "order_entry":
+            logger.error("Cannot send quote: Not authenticated or wrong session type")
+            return ""
+            
+        if self.test_mode:
+            quote_id = str(uuid.uuid4())
+            logger.info(f"Test mode: Simulating quote with ID {quote_id}")
+            return quote_id
+        
+        try:
+            quote_id = str(uuid.uuid4())
+            
+            quote = FIXMessage("S")  # Quote
+            quote.set(131, quote_req_id)  # QuoteReqID
+            quote.set(117, quote_id)  # QuoteID
+            quote.set(FTag.Symbol, symbol)
+            
+            if bid_px and bid_size:
+                quote.set(132, str(bid_px))  # BidPx
+                quote.set(134, bid_size)  # BidSize
+            
+            if offer_px and offer_size:
+                quote.set(133, str(offer_px))  # OfferPx
+                quote.set(135, offer_size)  # OfferSize
+            
+            if portfolio_id:
+                quote.set(453, "1")  # NoPartyIDs
+                quote.set(448, portfolio_id)  # PartyID
+                quote.set(452, "24")  # PartyRole = Customer account
+            
+            await self.connection.send_msg(quote)
+            logger.info(f"Sent Quote {quote_id} for request {quote_req_id}")
+            
+            return quote_id
+            
+        except Exception as e:
+            logger.error(f"Error sending quote: {e}")
+            return ""
+
     async def subscribe_market_data(self, symbol: str, depth: int = 10) -> bool:
         """
         Subscribe to market data for a symbol.
