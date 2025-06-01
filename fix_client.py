@@ -15,7 +15,7 @@ import asyncfix
 from asyncfix.message import FIXMessage
 from asyncfix.protocol import FIXProtocolBase, FIXProtocol44
 from asyncfix.session import FIXSession
-from asyncfix.connection import AsyncFIXConnection
+from asyncfix.connection import AsyncFIXConnection, ConnectionState
 from asyncfix.journaler import Journaler
 from asyncfix import FTag, FMsg
 
@@ -34,6 +34,7 @@ class CoinbaseFIXClient:
         on_execution_report: Optional[Callable[[FIXMessage], None]] = None,
         on_market_data: Optional[Callable[[FIXMessage], None]] = None,
         on_position_report: Optional[Callable[[FIXMessage], None]] = None,
+        test_mode: bool = False,
     ):
         """
         Initialize the FIX client.
@@ -43,11 +44,13 @@ class CoinbaseFIXClient:
             on_execution_report: Callback for execution reports
             on_market_data: Callback for market data messages
             on_position_report: Callback for position reports
+            test_mode: Run in test mode without real connection
         """
         self.session_type = session_type
         self.on_execution_report = on_execution_report
         self.on_market_data = on_market_data
         self.on_position_report = on_position_report
+        self.test_mode = test_mode
         
         if session_type == "order_entry":
             self.host = config.FIX_ORDER_ENTRY_HOST
@@ -83,6 +86,12 @@ class CoinbaseFIXClient:
         Returns:
             bool: True if connection and authentication successful
         """
+        if self.test_mode:
+            logger.info(f"Test mode enabled for {self.session_type} session")
+            self.connected = True
+            self.authenticated = True
+            return True
+            
         try:
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
@@ -113,6 +122,17 @@ class CoinbaseFIXClient:
             self.connected = True
             logger.info(f"Connected to {self.host}:{self.port} for {self.session_type} session")
             
+            connection_timeout = 10  # seconds
+            connection_start = time.time()
+            while (self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED and 
+                   time.time() - connection_start < connection_timeout):
+                await asyncio.sleep(0.1)
+                
+            if self.connection.connection_state < ConnectionState.NETWORK_CONN_ESTABLISHED:
+                logger.error(f"Connection timeout: state={self.connection.connection_state}")
+                self.connected = False
+                return False
+                
             # Authenticate
             await self._authenticate()
             
@@ -161,17 +181,17 @@ class CoinbaseFIXClient:
             }
             
             logon_msg = FIXMessage(FMsg.LOGON)
-            logon_msg.set_field(FTag.EncryptMethod, "0")  # No encryption
-            logon_msg.set_field(FTag.HeartBtInt, str(config.FIX_HEARTBEAT_INTERVAL))
-            logon_msg.set_field(FTag.ResetSeqNumFlag, "Y")  # Reset sequence numbers
+            logon_msg.set(FTag.EncryptMethod, "0")  # No encryption
+            logon_msg.set(FTag.HeartBtInt, str(config.FIX_HEARTBEAT_INTERVAL))
+            logon_msg.set(FTag.ResetSeqNumFlag, "Y")  # Reset sequence numbers
             
-            logon_msg.set_field(8013, self.api_key)       # CB API Key
-            logon_msg.set_field(8014, signature)          # CB API Sign
-            logon_msg.set_field(8015, timestamp)          # CB API Timestamp
-            logon_msg.set_field(8016, self.passphrase)    # CB API Passphrase
-            logon_msg.set_field(1137, "9")                # DefaultApplVerID = FIX.5.0SP2
+            logon_msg.set(8013, self.api_key)       # CB API Key
+            logon_msg.set(8014, signature)          # CB API Sign
+            logon_msg.set(8015, timestamp)          # CB API Timestamp
+            logon_msg.set(8016, self.passphrase)    # CB API Passphrase
+            logon_msg.set(1137, "9")                # DefaultApplVerID = FIX.5.0SP2
             
-            await self.connection.send_message(logon_msg)
+            await self.connection.send_msg(logon_msg)
             
             auth_timeout = 10  # seconds
             auth_start = time.time()
@@ -258,9 +278,9 @@ class CoinbaseFIXClient:
             
             heartbeat = FIXMessage(FMsg.HEARTBEAT)
             if test_req_id:
-                heartbeat.set_field(FTag.TestReqID, test_req_id)
+                heartbeat.set(FTag.TestReqID, test_req_id)
             
-            asyncio.create_task(self.connection.send_message(heartbeat))
+            asyncio.create_task(self.connection.send_msg(heartbeat))
             
         except Exception as e:
             logger.error(f"Error handling test request: {e}")
@@ -319,27 +339,31 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "market_data":
             logger.error("Cannot subscribe to market data: Not authenticated or wrong session type")
             return False
+            
+        if self.test_mode:
+            logger.info(f"Test mode: Simulating market data subscription for {symbol}")
+            return True
         
         try:
             req_id = str(self._get_next_request_id())
             
             mdr = FIXMessage(FMsg.MARKETDATAREQUEST)
-            mdr.set_field(FTag.MDReqID, req_id)
-            mdr.set_field(FTag.SubscriptionRequestType, "1")  # Snapshot + Updates
-            mdr.set_field(FTag.MarketDepth, "0")  # Full Book
-            mdr.set_field(FTag.MDUpdateType, "0")  # Full Refresh
-            mdr.set_field(FTag.AggregatedBook, "1")  # Yes
+            mdr.set(FTag.MDReqID, req_id)
+            mdr.set(FTag.SubscriptionRequestType, "1")  # Snapshot + Updates
+            mdr.set(FTag.MarketDepth, "0")  # Full Book
+            mdr.set(FTag.MDUpdateType, "0")  # Full Refresh
+            mdr.set(FTag.AggregatedBook, "1")  # Yes
             
-            mdr.set_field(FTag.NoMDEntryTypes, "2")
+            mdr.set(FTag.NoMDEntryTypes, "2")
             
-            mdr.set_field(FTag.MDEntryType, "0")  # Bid
+            mdr.set(FTag.MDEntryType, "0")  # Bid
             
-            mdr.set_field(FTag.MDEntryType, "1")  # Offer
+            mdr.set(FTag.MDEntryType, "1")  # Offer
             
-            mdr.set_field(FTag.NoRelatedSym, "1")
-            mdr.set_field(FTag.Symbol, symbol)
+            mdr.set(FTag.NoRelatedSym, "1")
+            mdr.set(FTag.Symbol, symbol)
             
-            await self.connection.send_message(mdr)
+            await self.connection.send_msg(mdr)
             logger.info(f"Sent market data subscription request for {symbol}")
             return True
             
@@ -360,19 +384,23 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "market_data":
             logger.error("Cannot unsubscribe from market data: Not authenticated or wrong session type")
             return False
+            
+        if self.test_mode:
+            logger.info(f"Test mode: Simulating market data unsubscription for {symbol}")
+            return True
         
         try:
             req_id = str(self._get_next_request_id())
             
             mdr = FIXMessage(FMsg.MARKETDATAREQUEST)
-            mdr.set_field(FTag.MDReqID, req_id)
-            mdr.set_field(FTag.SubscriptionRequestType, "2")  # Disable previous subscription
+            mdr.set(FTag.MDReqID, req_id)
+            mdr.set(FTag.SubscriptionRequestType, "2")  # Disable previous subscription
             
-            mdr.set_field(FTag.NoRelatedSym, "1")
-            mdr.set_field(FTag.Symbol, symbol)
+            mdr.set(FTag.NoRelatedSym, "1")
+            mdr.set(FTag.Symbol, symbol)
             
             # Send Market Data Request
-            await self.connection.send_message(mdr)
+            await self.connection.send_msg(mdr)
             logger.info(f"Sent market data unsubscription request for {symbol}")
             return True
             
@@ -408,6 +436,11 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "order_entry":
             logger.error("Cannot place order: Not authenticated or wrong session type")
             return ""
+            
+        if self.test_mode:
+            client_order_id = order_id or f"TEST-{self._get_next_client_order_id()}"
+            logger.info(f"Test mode: Simulating {order_type} {side} order for {quantity} {symbol} at price {price}")
+            return client_order_id
         
         try:
             client_order_id = order_id or f"{self.sender_comp_id}-{self._get_next_client_order_id()}"
@@ -439,21 +472,21 @@ class CoinbaseFIXClient:
                 raise ValueError(f"Invalid time in force: {time_in_force}")
             
             nos = FIXMessage(FMsg.NEWORDERSINGLE)
-            nos.set_field(FTag.ClOrdID, client_order_id)
-            nos.set_field(FTag.Symbol, symbol)
-            nos.set_field(FTag.Side, fix_side)
-            nos.set_field(FTag.TransactTime, self._get_utc_timestamp())
-            nos.set_field(FTag.OrdType, fix_order_type)
-            nos.set_field(FTag.OrderQty, str(quantity))
-            nos.set_field(FTag.TimeInForce, fix_tif)
+            nos.set(FTag.ClOrdID, client_order_id)
+            nos.set(FTag.Symbol, symbol)
+            nos.set(FTag.Side, fix_side)
+            nos.set(FTag.TransactTime, self._get_utc_timestamp())
+            nos.set(FTag.OrdType, fix_order_type)
+            nos.set(FTag.OrderQty, str(quantity))
+            nos.set(FTag.TimeInForce, fix_tif)
             
             if order_type.upper() in ["LIMIT", "STOP_LIMIT"] and price is not None:
-                nos.set_field(FTag.Price, str(price))
+                nos.set(FTag.Price, str(price))
             
             if order_type.upper() in ["STOP", "STOP_LIMIT"] and price is not None:
-                nos.set_field(FTag.StopPx, str(price))
+                nos.set(FTag.StopPx, str(price))
             
-            await self.connection.send_message(nos)
+            await self.connection.send_msg(nos)
             logger.info(f"Placed {order_type} {side} order for {quantity} {symbol} "
                        f"with client order ID {client_order_id}")
             
@@ -477,19 +510,24 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "order_entry":
             logger.error("Cannot cancel order: Not authenticated or wrong session type")
             return ""
+            
+        if self.test_mode:
+            cancel_client_order_id = f"TEST-C-{self._get_next_client_order_id()}"
+            logger.info(f"Test mode: Simulating cancel for order {client_order_id} with cancel ID {cancel_client_order_id}")
+            return cancel_client_order_id
         
         try:
             cancel_client_order_id = f"C-{self._get_next_client_order_id()}"
             
             # Create Order Cancel Request message
             ocr = FIXMessage(FMsg.ORDERCANCELREQUEST)
-            ocr.set_field(FTag.OrigClOrdID, client_order_id)
-            ocr.set_field(FTag.ClOrdID, cancel_client_order_id)
-            ocr.set_field(FTag.Symbol, symbol)
-            ocr.set_field(FTag.TransactTime, self._get_utc_timestamp())
+            ocr.set(FTag.OrigClOrdID, client_order_id)
+            ocr.set(FTag.ClOrdID, cancel_client_order_id)
+            ocr.set(FTag.Symbol, symbol)
+            ocr.set(FTag.TransactTime, self._get_utc_timestamp())
             
             # Send Order Cancel Request message
-            await self.connection.send_message(ocr)
+            await self.connection.send_msg(ocr)
             logger.info(f"Sent cancel request for order {client_order_id} with cancel ID {cancel_client_order_id}")
             
             return cancel_client_order_id
@@ -508,17 +546,21 @@ class CoinbaseFIXClient:
         if not self.authenticated or self.session_type != "order_entry":
             logger.error("Cannot request positions: Not authenticated or wrong session type")
             return False
+            
+        if self.test_mode:
+            logger.info("Test mode: Simulating position request")
+            return True
         
         try:
             req_id = str(self._get_next_request_id())
             
             rfp = FIXMessage(FMsg.REQUESTFORPOSITIONS)
-            rfp.set_field(FTag.PosReqID, req_id)
-            rfp.set_field(FTag.PosReqType, "0")  # Positions
-            rfp.set_field(FTag.SubscriptionRequestType, "1")  # Snapshot
-            rfp.set_field(FTag.TransactTime, self._get_utc_timestamp())
+            rfp.set(FTag.PosReqID, req_id)
+            rfp.set(FTag.PosReqType, "0")  # Positions
+            rfp.set(FTag.SubscriptionRequestType, "1")  # Snapshot
+            rfp.set(FTag.TransactTime, self._get_utc_timestamp())
             
-            await self.connection.send_message(rfp)
+            await self.connection.send_msg(rfp)
             logger.info("Sent position request")
             return True
             
