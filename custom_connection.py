@@ -38,13 +38,19 @@ class SSLAsyncFIXConnection(AsyncFIXConnection):
         )
         self.ssl_context = ssl_context
     
-    async def connect(self):
-        """Connect with SSL support."""
+    async def connect(self, ssl=None):
+        """Connect with SSL support.
+        
+        Args:
+            ssl: Optional SSL context. If provided, overrides the stored ssl_context.
+        """
         try:
+            ssl_context = ssl if ssl is not None else self.ssl_context
+            
             self._socket_reader, self._socket_writer = await asyncio.open_connection(
                 self._host, 
                 self._port,
-                ssl=self.ssl_context
+                ssl=ssl_context
             )
             
             if not self._aio_task_socket_read:
