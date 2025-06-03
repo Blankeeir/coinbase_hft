@@ -19,10 +19,17 @@ from asyncfix.session import FIXSession
 from asyncfix.connection import AsyncFIXConnection, ConnectionState
 from asyncfix.journaler import Journaler
 from asyncfix import FTag, FMsg
+from fixt11 import FIXT11
 
 import config
 
 logger = logging.getLogger("coinbase_hft.fix_client")
+
+SESSION_SUB_IDS = {
+    "order_entry": "OE",
+    "market_data": "MD", 
+    "drop_copy": "DC",
+}
 
 class CoinbaseFIXClient:
     """
@@ -88,14 +95,10 @@ class CoinbaseFIXClient:
         
         self.sender_comp_id = config.CB_INTX_SENDER_COMPID
         
-        if session_type == "order_entry":
-            self.target_comp_id = config.FIX_TARGET_COMPID_ORDER_ENTRY
-        elif session_type == "market_data":
-            self.target_comp_id = config.FIX_TARGET_COMPID_MARKET_DATA
-        elif session_type == "drop_copy":
-            self.target_comp_id = config.FIX_TARGET_COMPID_DROP_COPY
-        else:
-            raise ValueError(f"Invalid session type: {session_type}")
+        self.target_comp_id = "CBINTL"
+        
+        self.target_sub_id = SESSION_SUB_IDS[session_type]
+        
         self.api_key = config.CB_INTX_API_KEY
         self.api_secret = config.CB_INTX_API_SECRET
         self.passphrase = config.CB_INTX_PASSPHRASE
@@ -148,7 +151,7 @@ class CoinbaseFIXClient:
                 self.ssl_context.check_hostname = False
                 self.ssl_context.verify_mode = ssl.CERT_NONE
                 
-                self.protocol = FIXProtocol44()  # Using FIX 4.4 protocol as base for FIX 5.0
+                self.protocol = FIXT11()
                 
                 store_dir = "store"
                 import os
@@ -296,9 +299,9 @@ class CoinbaseFIXClient:
             utc_timestamp = self._get_utc_timestamp()
             logger.info(f"Using timestamp for authentication: {utc_timestamp}")
             
-            # Signature format per Coinbase docs: timestamp + api_key + target_comp_id + passphrase
-            message = f"{utc_timestamp}{self.api_key}{self.target_comp_id}{self.passphrase}"
-            logger.info(f"Authentication message components: timestamp={utc_timestamp}, api_key={self.api_key[:4]}..., target_comp_id={self.target_comp_id}, passphrase=***")
+            # Signature format: timestamp + api_key + "CBINTL" + passphrase (always use CBINTL)
+            message = f"{utc_timestamp}{self.api_key}CBINTL{self.passphrase}"
+            logger.info(f"Authentication message components: timestamp={utc_timestamp}, api_key={self.api_key[:4]}..., target_comp_id=CBINTL, passphrase=***")
             
             # Decode the API secret from base64 and create HMAC signature
             try:
@@ -338,10 +341,13 @@ class CoinbaseFIXClient:
             logon_msg.set(58, utc_timestamp)  # Text: Timestamp used for signature (Tag 58)
             logon_msg.set(1137, "9")  # DefaultApplVerID = FIX.5.0SP2
             
-            logon_msg.set(8013, "N")  # CancelOrdersOnDisconnect: Don't cancel orders on disconnect
-            logon_msg.set(8014, "N")  # CancelOrdersOnInternalDisconnect: Don't cancel on internal disconnect
+            logon_msg.set(57, self.target_sub_id)  # TargetSubID
             
-            logger.info(f"Sending Logon message for {self.session_type} session with fields: {logon_msg}")
+            if self.session_type == "order_entry":
+                logon_msg.set(8013, "N")  # CancelOrdersOnDisconnect: Don't cancel orders on disconnect
+                logon_msg.set(8014, "N")  # CancelOrdersOnInternalDisconnect: Don't cancel on internal disconnect
+            
+            logger.info(f"Sending Logon message for {self.session_type} session with fields: 98=0|108=30|141=Y|553={self.api_key}|554={self.passphrase}|95={len(signature)}|96={signature[:10]}...|58={utc_timestamp}|1137=9|57={self.target_sub_id}")
             
             # Send the Logon message
             await self.connection.send_msg(logon_msg)
