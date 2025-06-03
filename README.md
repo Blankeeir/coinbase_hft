@@ -208,19 +208,28 @@ python run_dashboard.py
    - Verify your API credentials in the .env file
    - Check that you have the correct permissions on your Coinbase International account
    - Ensure your IP is whitelisted in the Coinbase International settings
+   - If you see `SSLAsyncFIXConnection.connect() got an unexpected keyword argument 'ssl'`, apply the fix in IMPLEMENTATION_GUIDE.md
+   - For SSL/TLS handshake failures, check your certificates and network configuration
 
 2. **Market Data Issues**
    - Verify that the symbol you're trading is supported
    - Check the log files for any subscription errors
+   - Use `test_market_data_handlers.py` to verify market data message handling
 
 3. **Order Placement Issues**
    - Verify that you have sufficient funds in your account
    - Check position and notional limits in config.py
+   - Ensure you're using the correct TargetCompID values (CBINTLOE for order entry)
 
 4. **Performance Optimization**
    - Adjust the TRADING_CYCLE parameter for faster/slower execution
    - Tune the ML model parameters in strategy.py
    - Adjust the LATENCY_BUDGET for your network conditions
+
+5. **FIX Connection Fix**
+   - If you encounter SSL connection issues, see the `IMPLEMENTATION_GUIDE.md` for detailed fix instructions
+   - Use `test_ssl_connection.py` to verify your SSL connection works properly
+   - Ensure your custom_connection.py properly handles the SSL context
 
 For more detailed information on the strategy implementation, see the [Strategy Guide](STRATEGY_GUIDE.md).
 
