@@ -2,6 +2,7 @@
 import quickfix as fix
 import quickfix50sp2 as fix50
 import threading, time, logging
+import hmac, hashlib, base64
 from config import *
 from data_handler import LimitOrderBook
 
@@ -21,7 +22,36 @@ class IntxApp(fix.Application):
         logger.info('Logon')
         self._subscribe_market_data()
     def onLogout(self, sessionID):    logger.warning('Logout')
-    def toAdmin(self, msg, sessionID): pass
+    def toAdmin(self, msg, sessionID):
+        msgType = fix.MsgType()
+        msg.getHeader().getField(msgType)
+        
+        if msgType.getValue() == fix.MsgType_Logon:
+            logger.info("Preparing Logon message for authentication")
+            
+            settings = fix.Session.lookupSession(sessionID).getSessionID()
+            targetSubID = fix.TargetSubID()
+            settings.getField(targetSubID)
+            
+            utc_timestamp = fix.TransactTime().getString()
+            
+            msg.setField(fix.Username(API_KEY))
+            msg.setField(fix.Password(PASSPHRASE))
+            
+            message = f"{utc_timestamp}{API_KEY}CBINTL{PASSPHRASE}"
+            hmac_key = base64.b64decode(API_SECRET)
+            signature = hmac.new(hmac_key, message.encode(), hashlib.sha256).digest()
+            signature_b64 = base64.b64encode(signature).decode()
+            
+            msg.setField(fix.RawDataLength(len(signature_b64)))
+            msg.setField(fix.RawData(signature_b64))
+            msg.setField(fix.Text(utc_timestamp))
+            
+            if targetSubID.getValue() == "OE":
+                msg.setField(8013, "N")  # CancelOrdersOnDisconnect
+                msg.setField(8014, "N")  # CancelOrdersOnInternalDisconnect
+            
+            logger.info(f"Logon message authenticated with timestamp {utc_timestamp}")
     def fromAdmin(self, msg, sessionID): pass
     def toApp(self, msg, sessionID):   pass
     def fromApp(self, msg, sessionID):

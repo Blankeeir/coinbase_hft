@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fix major="5" minor="0" servicepack="2">
+  <header>
+    <field name="ApplVerID" required="N"/>
+    <field name="CstmApplVerID" required="N"/>
+  </header>
+  <trailer>
+  </trailer>
+  <messages>
+    <message name="MarketDataRequest" msgtype="V" msgcat="app">
+      <field name="MDReqID" required="Y"/>
+      <field name="SubscriptionRequestType" required="Y"/>
+      <field name="MarketDepth" required="Y"/>
+      <field name="MDUpdateType" required="N"/>
+      <field name="AggregatedBook" required="N"/>
+      <field name="NoMDEntryTypes" required="Y"/>
+      <field name="NoRelatedSym" required="Y"/>
+    </message>
+    <message name="MarketDataSnapshotFullRefresh" msgtype="W" msgcat="app">
+      <field name="MDReqID" required="N"/>
+      <field name="Symbol" required="Y"/>
+      <field name="NoMDEntries" required="Y"/>
+    </message>
+    <message name="MarketDataIncrementalRefresh" msgtype="X" msgcat="app">
+      <field name="MDReqID" required="N"/>
+      <field name="NoMDEntries" required="Y"/>
+    </message>
+    <message name="NewOrderSingle" msgtype="D" msgcat="app">
+      <field name="ClOrdID" required="Y"/>
+      <field name="Side" required="Y"/>
+      <field name="TransactTime" required="Y"/>
+      <field name="OrdType" required="Y"/>
+      <field name="OrderQty" required="Y"/>
+      <field name="Price" required="N"/>
+      <field name="Symbol" required="Y"/>
+    </message>
+    <message name="OrderCancelRequest" msgtype="F" msgcat="app">
+      <field name="OrigClOrdID" required="Y"/>
+      <field name="ClOrdID" required="Y"/>
+      <field name="Side" required="Y"/>
+      <field name="Symbol" required="Y"/>
+    </message>
+    <message name="ExecutionReport" msgtype="8" msgcat="app">
+      <field name="OrderID" required="Y"/>
+      <field name="ClOrdID" required="Y"/>
+      <field name="ExecID" required="Y"/>
+      <field name="ExecType" required="Y"/>
+      <field name="OrdStatus" required="Y"/>
+      <field name="Symbol" required="Y"/>
+      <field name="Side" required="Y"/>
+      <field name="LeavesQty" required="Y"/>
+      <field name="CumQty" required="Y"/>
+      <field name="AvgPx" required="Y"/>
+    </message>
+  </messages>
+  <fields>
+    <field number="262" name="MDReqID" type="STRING"/>
+    <field number="263" name="SubscriptionRequestType" type="CHAR"/>
+    <field number="264" name="MarketDepth" type="INT"/>
+    <field number="265" name="MDUpdateType" type="INT"/>
+    <field number="266" name="AggregatedBook" type="BOOLEAN"/>
+    <field number="267" name="NoMDEntryTypes" type="NUMINGROUP"/>
+    <field number="146" name="NoRelatedSym" type="NUMINGROUP"/>
+    <field number="55" name="Symbol" type="STRING"/>
+    <field number="268" name="NoMDEntries" type="NUMINGROUP"/>
+    <field number="269" name="MDEntryType" type="CHAR"/>
+    <field number="270" name="MDEntryPx" type="PRICE"/>
+    <field number="271" name="MDEntrySize" type="QTY"/>
+    <field number="11" name="ClOrdID" type="STRING"/>
+    <field number="54" name="Side" type="CHAR"/>
+    <field number="60" name="TransactTime" type="UTCTIMESTAMP"/>
+    <field number="40" name="OrdType" type="CHAR"/>
+    <field number="38" name="OrderQty" type="QTY"/>
+    <field number="44" name="Price" type="PRICE"/>
+    <field number="41" name="OrigClOrdID" type="STRING"/>
+    <field number="37" name="OrderID" type="STRING"/>
+    <field number="17" name="ExecID" type="STRING"/>
+    <field number="150" name="ExecType" type="CHAR"/>
+    <field number="39" name="OrdStatus" type="CHAR"/>
+    <field number="151" name="LeavesQty" type="QTY"/>
+    <field number="14" name="CumQty" type="QTY"/>
+    <field number="6" name="AvgPx" type="PRICE"/>
+  </fields>
+</fix>
