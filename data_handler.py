@@ -6,6 +6,7 @@ Handles order book reconstruction and feature calculation.
 import logging
 import time
 from typing import Dict, List, Tuple, Optional, Any, Union
+from collections import OrderedDict, deque
 import numpy as np
 import pandas as pd
 from asyncfix.message import FIXMessage
@@ -476,6 +477,7 @@ class LimitOrderBook:
         ask_vol = sum(sz for _, sz in asks)
         if bid_vol + ask_vol == 0:
             return 0.0
+        return (bid_vol - ask_vol) / (bid_vol + ask_vol)
 
     def get_donchian_channel(self, window: int = 120) -> Tuple[float, float]:
         """
