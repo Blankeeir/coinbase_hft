@@ -79,6 +79,22 @@ The system implements a smart channel breakout strategy with an order book imbal
 
 Orders are first posted passively at the top of book. If passive fills lag beyond the latency budget (defaults to 200 ms), they are converted to IOC aggressions.
 
+---  
+**DISCLAIMER** This codebase is educational and shipped *as‑is*. Run it on a paper account and understand the risks before deploying real capital.
+
+---
+**Very Important Updates for Next Steps**
+Next steps & suggestions
+Feature-engineering – add short-term volatility, trade-imbalance, VWAP distance, and Hawkes-based OFI forecasts for richer inputs.
+
+Risk controls – plug your internal position limits & kill-switches into execution.py.
+
+** Correct any issues occurred
+
+
+comprehensive references for hft strategy:
+
+strategy need to be further improved
 ## Components
 
 - **FIX Client**: Handles connectivity to Coinbase International Exchange using FIX 5.0 SP2 protocol
