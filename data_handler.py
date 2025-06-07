@@ -421,11 +421,8 @@ class LimitOrderBook:
     def mid_price(self):
         if not self.bids or not self.asks:
             return None
-        # `OrderedDict` iteration yields keys directly. The previous
-        # implementation attempted to index into the returned key which
-        # caused a `TypeError`. Use the best bid/ask prices directly.
-        best_bid = next(iter(self.bids))
-        best_ask = next(iter(self.asks))
+        best_bid = next(iter(self.bids.items()))[0]
+        best_ask = next(iter(self.asks.items()))[0]
         return (best_bid + best_ask) / 2
 
     def channel(self):
