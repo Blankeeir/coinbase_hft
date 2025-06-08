@@ -487,6 +487,18 @@ class LimitOrderBook:
         best_bid = next(iter(self.bids.items()))[0]
         best_ask = next(iter(self.asks.items()))[0]
         return best_ask - best_bid
+        
+    def get_order_book_imbalance(self, levels=5):
+        """
+        Alias for obi() to maintain compatibility with OrderBook interface.
+        
+        Args:
+            levels: Number of price levels to consider
+            
+        Returns:
+            float: Order book imbalance in range [-1, 1]
+        """
+        return self.obi(levels)
 
     def channel(self):
         if len(self.mid_history) < self.mid_history.maxlen:
