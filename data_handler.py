@@ -474,6 +474,19 @@ class LimitOrderBook:
             float: Mid price or None if order book is empty
         """
         return self.mid_price()
+        
+    def get_spread(self):
+        """
+        Calculate the bid-ask spread.
+        
+        Returns:
+            float: Bid-ask spread or 0 if order book is empty
+        """
+        if not self.bids or not self.asks:
+            return 0.0
+        best_bid = next(iter(self.bids.items()))[0]
+        best_ask = next(iter(self.asks.items()))[0]
+        return best_ask - best_bid
 
     def channel(self):
         if len(self.mid_history) < self.mid_history.maxlen:
