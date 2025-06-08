@@ -2,11 +2,15 @@
 Execution module for Coinbase International Exchange HFT Bot.
 Handles smart order placement and risk management.
 """
+Execution module for Coinbase International Exchange HFT Bot.
+Handles smart order placement and risk management.
+"""
 import logging
 import time
 import asyncio
+import uuid
 from typing import Dict, List, Tuple, Optional, Any
-from datetime import datetime
+from datetime import datetime as dt
 
 import config
 from fix_client import CoinbaseFIXClient

@@ -656,7 +656,7 @@ class DataHandler:
     def __init__(self):
         self.order_books: Dict[str, OrderBook] = {}
 
-    def get_or_create_order_book(self, symbol: str) -> OrderBook:
+    def get_or_create_order_book(self, symbol: str) -> LimitOrderBook:
         """
         Get or create order book for a symbol.
 
@@ -664,10 +664,10 @@ class DataHandler:
             symbol: Trading symbol (e.g., 'BTC-USD')
 
         Returns:
-            OrderBook: Order book for the symbol
+            LimitOrderBook: Order book for the symbol
         """
         if symbol not in self.order_books:
-            self.order_books[symbol] = OrderBook(symbol)
+            self.order_books[symbol] = LimitOrderBook(symbol)
 
         return self.order_books[symbol]
 
