@@ -478,6 +478,39 @@ class LimitOrderBook:
         if bid_vol + ask_vol == 0:
             return 0.0
         return (bid_vol - ask_vol) / (bid_vol + ask_vol)
+        
+    def get_features(self) -> Dict[str, float]:
+        """
+        Get all features for ML model.
+        
+        Returns:
+            Dict[str, float]: Dictionary of features
+        """
+        try:
+            mid = self.mid_price()
+            if mid is None:
+                return {}
+                
+            high, low = self.channel()
+            if high is None or low is None:
+                high = mid * 1.01
+                low = mid * 0.99
+                
+            features = {
+                "mid_price": mid,
+                "spread": next(iter(self.asks.items()))[0] - next(iter(self.bids.items()))[0] if self.bids and self.asks else 0.0,
+                "obi": self.obi(k=config.OBI_LEVELS),
+                "upper_bound": high,
+                "lower_bound": low,
+                "channel_width": high - low,
+                "channel_position": (mid - low) / (high - low) if high > low else 0.5,
+            }
+            
+            return features
+            
+        except Exception as e:
+            logger.error(f"Error getting features: {e}")
+            return {}
 
     def get_donchian_channel(self, window: int = 120) -> Tuple[float, float]:
         """
