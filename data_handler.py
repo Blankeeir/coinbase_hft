@@ -499,6 +499,36 @@ class LimitOrderBook:
             float: Order book imbalance in range [-1, 1]
         """
         return self.obi(levels)
+        
+    def get_volatility(self, window=20):
+        """
+        Calculate price volatility over a window of recent prices.
+        
+        Args:
+            window: Number of price points to consider
+            
+        Returns:
+            float: Volatility (standard deviation of returns)
+        """
+        if len(self.mid_history) < 2:
+            return 0.0
+            
+        prices = list(self.mid_history)[-min(window, len(self.mid_history)):]
+        
+        if len(prices) < 2:
+            return 0.0
+            
+        # Calculate returns
+        returns = [prices[i] / prices[i-1] - 1 for i in range(1, len(prices))]
+        
+        # Calculate standard deviation
+        if not returns:
+            return 0.0
+            
+        mean = sum(returns) / len(returns)
+        variance = sum((r - mean) ** 2 for r in returns) / len(returns)
+        
+        return (variance ** 0.5) * 100  # Convert to percentage
 
     def channel(self):
         if len(self.mid_history) < self.mid_history.maxlen:
@@ -557,63 +587,78 @@ class LimitOrderBook:
             Tuple[float, float]: Upper and lower bounds of the channel
         """
         try:
-            current_time = time.time()
-            window_start = current_time - window
-
-            window_prices = [
-                price
-                for timestamp, price in self.price_history
-                if timestamp >= window_start
-            ]
-
-            if not window_prices:
-                return self.get_mid_price(), self.get_mid_price()
-
-            upper_bound = max(window_prices)
-            lower_bound = min(window_prices)
-
-            return upper_bound, lower_bound
+            high, low = self.channel()
+            if high is None or low is None:
+                mid = self.get_mid_price()
+                if mid is None or mid <= 0:
+                    return 1.0, 1.0  # Default values if no valid price
+                return mid * 1.01, mid * 0.99
+            return high, low
 
         except Exception as e:
             logger.error(f"Error calculating Donchian channel: {e}")
-            return self.get_mid_price(), self.get_mid_price()
+            mid = self.get_mid_price()
+            if mid is None or mid <= 0:
+                return 1.0, 1.0  # Default values if no valid price
+            return mid, mid
 
     def get_features(self) -> Dict[str, float]:
         """
         Get all features for ML model.
-
+        
         Returns:
             Dict[str, float]: Dictionary of features
         """
         try:
+            mid_price = self.get_mid_price()
+            
+            if mid_price is None or mid_price <= 0:
+                return {
+                    "mid_price": 0.0,
+                    "spread": 0.0,
+                    "obi": 0.0,
+                    "volatility": 0.0,
+                    "upper_bound": 1.01,
+                    "lower_bound": 0.99,
+                    "channel_width": 0.02,
+                    "channel_position": 0.5,
+                }
+                
             features = {
-                "mid_price": self.get_mid_price(),
-                "spread": self.get_spread(),
-                "obi": self.get_order_book_imbalance(levels=config.OBI_LEVELS),
-                "volatility": self.get_volatility(),
-                "trade_imbalance": self.get_trade_imbalance(),
-                "vwap_distance": self.get_vwap_distance(),
-                "recent_return": self.get_recent_return(),
-                "hawkes_intensity": self.get_hawkes_intensity(),
+                "mid_price": mid_price,
+                "spread": self.get_spread() or 0.0,
+                "obi": self.get_order_book_imbalance(levels=config.OBI_LEVELS) or 0.0,
+                "volatility": self.get_volatility() or 0.0,
             }
 
-            upper_bound, lower_bound = self.get_donchian_channel(
-                window=config.CHANNEL_WINDOW
-            )
-            features["upper_bound"] = upper_bound
-            features["lower_bound"] = lower_bound
-            features["channel_width"] = upper_bound - lower_bound
-            features["channel_position"] = (
-                (self.get_mid_price() - lower_bound) / (upper_bound - lower_bound)
-                if upper_bound > lower_bound
-                else 0.5
-            )
+            high, low = self.channel()
+            if high is None or low is None:
+                high = mid_price * 1.01
+                low = mid_price * 0.99
+                
+            features["upper_bound"] = high
+            features["lower_bound"] = low
+            features["channel_width"] = high - low
+            
+            if high > low:
+                features["channel_position"] = (mid_price - low) / (high - low)
+            else:
+                features["channel_position"] = 0.5
 
             return features
 
         except Exception as e:
             logger.error(f"Error getting features: {e}")
-            return {}
+            return {
+                "mid_price": 0.0,
+                "spread": 0.0,
+                "obi": 0.0,
+                "volatility": 0.0,
+                "upper_bound": 1.01,
+                "lower_bound": 0.99,
+                "channel_width": 0.02,
+                "channel_position": 0.5,
+            }
 
     def _add_mid_price(self) -> None:
         """Add current mid price to price history."""
@@ -654,28 +699,11 @@ class LimitOrderBook:
             current_time = time.time()
 
             obi = self.get_order_book_imbalance(levels=config.OBI_LEVELS)
-            self.obi_history.append((current_time, obi))
-
             volatility = self.get_volatility()
-            self.volatility_history.append((current_time, volatility))
-
-            trade_imbalance = self.get_trade_imbalance()
-            self.trade_imbalance_history.append((current_time, trade_imbalance))
-
-            vwap_distance = self.get_vwap_distance()
-            self.vwap_distance_history.append((current_time, vwap_distance))
-
-            max_history = 1000
-            if len(self.obi_history) > max_history:
-                self.obi_history = self.obi_history[-max_history:]
-            if len(self.volatility_history) > max_history:
-                self.volatility_history = self.volatility_history[-max_history:]
-            if len(self.trade_imbalance_history) > max_history:
-                self.trade_imbalance_history = self.trade_imbalance_history[
-                    -max_history:
-                ]
-            if len(self.vwap_distance_history) > max_history:
-                self.vwap_distance_history = self.vwap_distance_history[-max_history:]
+            
+            mid_price = self.get_mid_price()
+            if mid_price is not None:
+                self.mid_history.append(mid_price)
 
         except Exception as e:
             logger.error(f"Error calculating features: {e}")
