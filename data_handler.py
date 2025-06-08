@@ -465,6 +465,15 @@ class LimitOrderBook:
         best_bid = next(iter(self.bids.items()))[0]
         best_ask = next(iter(self.asks.items()))[0]
         return (best_bid + best_ask) / 2
+        
+    def get_mid_price(self):
+        """
+        Alias for mid_price() to maintain compatibility with OrderBook interface.
+        
+        Returns:
+            float: Mid price or None if order book is empty
+        """
+        return self.mid_price()
 
     def channel(self):
         if len(self.mid_history) < self.mid_history.maxlen:
