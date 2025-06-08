@@ -13,7 +13,7 @@ import hashlib
 import time
 from dotenv import load_dotenv
 from asyncfix.message import FIXMessage
-from asyncfix.protocol import FIXProtocol44
+from fixt11 import FIXT11
 from asyncfix.journaler import Journaler
 from asyncfix.connection import AsyncFIXConnection, ConnectionState
 
@@ -36,7 +36,8 @@ SENDER_COMP_ID = os.getenv("CB_INTX_SENDER_COMPID", "")
 
 HOST = "fix.international.coinbase.com"
 PORT = 6120
-TARGET_COMP_ID = "CBINTLMD"  # Market Data
+TARGET_COMP_ID = "CBINTL"  # Always use CBINTL
+TARGET_SUB_ID = "MD"  # Market Data session
 
 async def get_utc_timestamp():
     """Generate UTC timestamp in FIX format."""
@@ -44,7 +45,7 @@ async def get_utc_timestamp():
 
 async def generate_signature(timestamp, api_key, target_comp_id, passphrase, api_secret):
     """Generate HMAC-SHA256 signature for authentication."""
-    message = f"{timestamp}{api_key}{target_comp_id}{passphrase}"
+    message = f"{timestamp}{api_key}CBINTL{passphrase}"
     logger.info(f"Signature message components: timestamp={timestamp}, api_key={api_key[:4]}..., target_comp_id={target_comp_id}, passphrase=***")
     
     try:
@@ -80,8 +81,9 @@ async def test_authentication():
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
+    ssl_context.set_ciphers("DEFAULT:@SECLEVEL=1")  # Fix SSL handshake issues
     
-    protocol = FIXProtocol44()
+    protocol = FIXT11()
     journaler = Journaler(None)  # In-memory journaler
     
     connection = AsyncFIXConnection(
@@ -124,8 +126,9 @@ async def test_authentication():
         logon_msg.set(96, signature)  # RawData: HMAC signature
         logon_msg.set(58, timestamp)  # Text: Timestamp used for signature
         logon_msg.set(1137, "9")  # DefaultApplVerID = FIX.5.0SP2
-        logon_msg.set(8013, "N")  # CancelOrdersOnDisconnect: Don't cancel orders on disconnect
-        logon_msg.set(8014, "N")  # CancelOrdersOnInternalDisconnect: Don't cancel on internal disconnect
+        logon_msg.set(57, TARGET_SUB_ID)  # TargetSubID for Market Data
+        # logon_msg.set(8013, "N")  # CancelOrdersOnDisconnect
+        # logon_msg.set(8014, "N")  # CancelOrdersOnInternalDisconnect
         
         logger.info(f"Sending Logon message: {logon_msg}")
         
