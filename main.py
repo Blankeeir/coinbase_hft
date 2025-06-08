@@ -61,7 +61,7 @@ class HFTBot:
         
         self.strategy = ChannelBreakoutStrategy(symbol, self.data_handler)
         order_book = self.data_handler.get_or_create_order_book(symbol)
-        self.execution = ExecutionEngine(self.order_entry_client, order_book, latency_ms=config.LATENCY_BUDGET_MS)
+        self.execution = ExecutionEngine(self.order_entry_client, order_book, latency_ms=config.LATENCY_BUDGET)
         self.portfolio = Portfolio(self.order_entry_client)
         
         self.running = False
