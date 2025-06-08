@@ -2,9 +2,6 @@
 Execution module for Coinbase International Exchange HFT Bot.
 Handles smart order placement and risk management.
 """
-Execution module for Coinbase International Exchange HFT Bot.
-Handles smart order placement and risk management.
-"""
 import logging
 import time
 import asyncio
@@ -122,27 +119,119 @@ class Order:
 
 class ExecutionEngine:
     def __init__(self, fix, book, latency_ms=200):
+        """
+        Initialize the execution engine.
+        
+        Args:
+            fix: FIX client for order execution
+            book: Order book for price discovery
+            latency_ms: Latency budget in milliseconds
+        """
         self.fix = fix
         self.book = book
         self.latency_ms = latency_ms
         self.active_orders = {}
+        self.orders = {}
+        logger.info(f"ExecutionEngine initialized with latency budget: {latency_ms}ms")
 
     def _gen_cloid(self):
-        return dt.datetime.utcnow().strftime('%Y%m%d%H%M%S') + uuid.uuid4().hex[:8]
+        """Generate a unique client order ID."""
+        return dt.utcnow().strftime('%Y%m%d%H%M%S') + uuid.uuid4().hex[:8]
 
     def send_limit(self, side, qty):
+        """
+        Send a limit order.
+        
+        Args:
+            side: Order side ('BUY' or 'SELL')
+            qty: Order quantity
+        """
         price = self.book.bids.keys().__iter__().__next__() if side=='BUY' else self.book.asks.keys().__iter__().__next__()
         cloid = self._gen_cloid()
         self.fix.place_limit_order(cloid, side, qty, price)
         self.active_orders[cloid] = {'sent': time.time(), 'side': side, 'qty': qty, 'price': price}
 
     def monitor(self):
+        """Monitor active orders and convert to IOC if latency budget exceeded."""
         now = time.time()
         for cloid, meta in list(self.active_orders.items()):
-            # `meta['sent']` is stored in seconds. Multiply the elapsed time by
-            # 1000 before comparing to the latency budget.
             if (now - meta['sent']) * 1000 > self.latency_ms:
-                # convert to IOC market order
                 self.fix.cancel_order(cloid)
                 self.fix.place_market_order(meta['side'], meta['qty'])
                 self.active_orders.pop(cloid, None)
+                
+    async def place_smart_order(self, symbol, side, quantity, price=None):
+        """
+        Place a smart order with latency-aware execution.
+        
+        Args:
+            symbol: Trading symbol
+            side: Order side ('BUY' or 'SELL')
+            quantity: Order quantity
+            price: Order price (optional for market orders)
+        """
+        order_id = self._gen_cloid()
+        
+        order = Order(
+            symbol=symbol,
+            side=side,
+            order_type="LIMIT" if price else "MARKET",
+            quantity=quantity,
+            price=price,
+            client_order_id=order_id
+        )
+        
+        self.orders[order_id] = order
+        
+        if price:
+            logger.info(f"Placing limit order: {order}")
+            await self.fix.place_limit_order(order_id, side, quantity, price)
+            self.active_orders[order_id] = {
+                'sent': time.time(),
+                'side': side,
+                'qty': quantity,
+                'price': price
+            }
+        else:
+            logger.info(f"Placing market order: {order}")
+            await self.fix.place_market_order(order_id, side, quantity)
+        
+        return order_id
+    
+    def on_execution_report(self, message):
+        """
+        Process execution report message.
+        
+        Args:
+            message: FIX execution report message
+        """
+        try:
+            client_order_id = message.get_field(11, "")
+            if not client_order_id:
+                return
+            
+            exec_type = message.get_field(150, "")
+            order_status = message.get_field(39, "")
+            
+            if client_order_id in self.active_orders and order_status in ["2", "4"]:  # Filled or Canceled
+                self.active_orders.pop(client_order_id, None)
+            
+            if client_order_id in self.orders:
+                order = self.orders[client_order_id]
+                
+                exec_report = {
+                    "order_status": order_status,
+                    "exec_type": exec_type,
+                    "cum_qty": float(message.get_field(14, "0")),
+                    "avg_px": float(message.get_field(6, "0")),
+                    "last_qty": float(message.get_field(32, "0")),
+                    "last_px": float(message.get_field(31, "0")),
+                    "order_id": message.get_field(37, "")
+                }
+                
+                order.update_from_execution_report(exec_report)
+                
+                logger.info(f"Order update: {order}")
+        
+        except Exception as e:
+            logger.error(f"Error processing execution report: {e}")
