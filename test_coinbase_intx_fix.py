@@ -33,7 +33,7 @@ async def test_market_data_connection():
             logger.info("Authentication successful! Testing market data subscription...")
             await asyncio.sleep(5)  # Wait for any initial messages
             
-            subscribed = await client.subscribe_market_data("BTC-USD")
+            subscribed = await client.subscribe_market_data("BTC-PERP")
             logger.info(f"Market data subscription result: {subscribed}")
             
             logger.info("Waiting for market data (15 seconds)...")
