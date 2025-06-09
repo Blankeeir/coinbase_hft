@@ -98,7 +98,14 @@ class CoinbaseFIXClient:
 
         self.sender_comp_id = config.CB_INTX_SENDER_COMPID
 
-        self.target_comp_id = "CBINTL"
+        if session_type == "order_entry":
+            self.target_comp_id = config.FIX_TARGET_COMPID_ORDER_ENTRY
+        elif session_type == "market_data":
+            self.target_comp_id = config.FIX_TARGET_COMPID_MARKET_DATA
+        elif session_type == "drop_copy":
+            self.target_comp_id = config.FIX_TARGET_COMPID_DROP_COPY
+        else:
+            self.target_comp_id = "CBINTL"
         
         self.target_sub_id = SESSION_SUB_IDS[session_type]
 
@@ -341,11 +348,11 @@ class CoinbaseFIXClient:
             utc_timestamp = self._get_utc_timestamp()
             logger.info(f"Using timestamp for authentication: {utc_timestamp}")
 
-            # Signature format: timestamp + api_key + "CBINTL" + passphrase (always use CBINTL)
-            message = f"{utc_timestamp}{self.api_key}CBINTL{self.passphrase}"
+            # Signature format: timestamp + api_key + TargetCompID + passphrase
+            message = f"{utc_timestamp}{self.api_key}{self.target_comp_id}{self.passphrase}"
             logger.info(
                 f"Authentication message components: timestamp={utc_timestamp}, api_key={self.api_key[:4]}..., "
-                f"target_comp_id=CBINTL, passphrase=***"
+                f"target_comp_id={self.target_comp_id}, passphrase=***"
             )
 
             # Decode the API secret from base64 and create HMAC signature
