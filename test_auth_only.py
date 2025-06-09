@@ -36,7 +36,7 @@ SENDER_COMP_ID = os.getenv("CB_INTX_SENDER_COMPID", "")
 
 HOST = "fix.international.coinbase.com"
 PORT = 6120
-TARGET_COMP_ID = "CBINTL"  # Always use CBINTL
+TARGET_COMP_ID = "CBINTLMD"  # Market Data TargetCompID
 TARGET_SUB_ID = "MD"  # Market Data session
 
 async def get_utc_timestamp():
@@ -45,7 +45,7 @@ async def get_utc_timestamp():
 
 async def generate_signature(timestamp, api_key, target_comp_id, passphrase, api_secret):
     """Generate HMAC-SHA256 signature for authentication."""
-    message = f"{timestamp}{api_key}CBINTL{passphrase}"
+    message = f"{timestamp}{api_key}{target_comp_id}{passphrase}"
     logger.info(f"Signature message components: timestamp={timestamp}, api_key={api_key[:4]}..., target_comp_id={target_comp_id}, passphrase=***")
     
     try:
