@@ -404,3 +404,139 @@
 2025-06-08 09:32:29,832 - coinbase_hft.fix_client - INFO - Generated signature: f48gghSpCn...
 2025-06-08 09:32:29,832 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=f48gghSpCn...|58=20250608-09:32:29.832|1137=9|57=MD
 2025-06-08 09:32:29,838 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:21:06,672 - coinbase_hft.strategy - INFO - Created new model
+2025-06-09 02:21:06,673 - coinbase_hft.execution - INFO - ExecutionEngine initialized with latency budget: 100.0ms
+2025-06-09 02:21:06,673 - coinbase_hft.main - INFO - Starting HFT bot for BTC-PERP
+2025-06-09 02:21:06,721 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:21:06,721 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:21:06,721 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:21:06,722 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:21:06.722
+2025-06-09 02:21:06,722 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:21:06.722, api_key=Uw5h..., target_comp_id=CBINTL, passphrase=***
+2025-06-09 02:21:06,722 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:21:06,722 - coinbase_hft.fix_client - INFO - Generated signature: 5Q/QWQ+fvQ...
+2025-06-09 02:21:06,723 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=5Q/QWQ+fvQ...|58=20250609-02:21:06.722|1137=9|57=MD
+2025-06-09 02:21:06,732 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:21:16,741 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:21:26,808 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:21:26,809 - coinbase_hft.fix_client - INFO - Retrying in 2 seconds...
+2025-06-09 02:21:28,810 - coinbase_hft.fix_client - INFO - Connection attempt 2/3 for market_data session
+2025-06-09 02:21:28,920 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:21:28,920 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:21:28,921 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:21:28,921 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:21:28.921
+2025-06-09 02:21:28,922 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:21:28.921, api_key=Uw5h..., target_comp_id=CBINTL, passphrase=***
+2025-06-09 02:21:28,922 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:21:28,922 - coinbase_hft.fix_client - INFO - Generated signature: hXzNYdbTrW...
+2025-06-09 02:21:28,922 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=hXzNYdbTrW...|58=20250609-02:21:28.921|1137=9|57=MD
+2025-06-09 02:21:28,932 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:21:31,677 - coinbase_hft.main - INFO - Received signal 2, shutting down...
+2025-06-09 02:21:38,935 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:21:49,020 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:21:49,021 - coinbase_hft.fix_client - INFO - Retrying in 4 seconds...
+2025-06-09 02:21:53,021 - coinbase_hft.fix_client - INFO - Connection attempt 3/3 for market_data session
+2025-06-09 02:21:53,063 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:21:53,064 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:21:53,064 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:21:53,064 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:21:53.064
+2025-06-09 02:21:53,065 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:21:53.064, api_key=Uw5h..., target_comp_id=CBINTL, passphrase=***
+2025-06-09 02:21:53,065 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:21:53,065 - coinbase_hft.fix_client - INFO - Generated signature: S93SLx8IBd...
+2025-06-09 02:21:53,065 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=S93SLx8IBd...|58=20250609-02:21:53.064|1137=9|57=MD
+2025-06-09 02:21:53,073 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:22:01,799 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:22:03,072 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:22:11,823 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:22:13,165 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:22:13,165 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
+2025-06-09 02:22:13,166 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-09 02:22:13,166 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-09 02:36:40,579 - coinbase_hft.strategy - INFO - Created new model
+2025-06-09 02:36:40,579 - coinbase_hft.execution - INFO - ExecutionEngine initialized with latency budget: 100.0ms
+2025-06-09 02:36:40,580 - coinbase_hft.main - INFO - Starting HFT bot for BTC-PERP
+2025-06-09 02:36:40,630 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:36:40,630 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:36:40,630 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:36:40,630 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:36:40.630
+2025-06-09 02:36:40,630 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:36:40.630, api_key=Uw5h..., target_comp_id=CBINTLMD, passphrase=***
+2025-06-09 02:36:40,631 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:36:40,631 - coinbase_hft.fix_client - INFO - Generated signature: g/Jt/OPO50...
+2025-06-09 02:36:40,631 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=g/Jt/OPO50...|58=20250609-02:36:40.630|1137=9|57=MD
+2025-06-09 02:36:40,638 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:36:40,661 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:37:00,720 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:37:00,720 - coinbase_hft.fix_client - INFO - Retrying in 2 seconds...
+2025-06-09 02:37:02,722 - coinbase_hft.fix_client - INFO - Connection attempt 2/3 for market_data session
+2025-06-09 02:37:02,765 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:37:02,765 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:37:02,766 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:37:02,766 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:37:02.766
+2025-06-09 02:37:02,766 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:37:02.766, api_key=Uw5h..., target_comp_id=CBINTLMD, passphrase=***
+2025-06-09 02:37:02,766 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:37:02,766 - coinbase_hft.fix_client - INFO - Generated signature: 24HIL/uqqm...
+2025-06-09 02:37:02,766 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=24HIL/uqqm...|58=20250609-02:37:02.766|1137=9|57=MD
+2025-06-09 02:37:02,775 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:37:02,796 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:37:22,865 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:37:22,866 - coinbase_hft.fix_client - INFO - Retrying in 4 seconds...
+2025-06-09 02:37:25,711 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:37:26,867 - coinbase_hft.fix_client - INFO - Connection attempt 3/3 for market_data session
+2025-06-09 02:37:26,907 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:37:26,907 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:37:26,908 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:37:26,908 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:37:26.908
+2025-06-09 02:37:26,908 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:37:26.908, api_key=Uw5h..., target_comp_id=CBINTLMD, passphrase=***
+2025-06-09 02:37:26,908 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:37:26,908 - coinbase_hft.fix_client - INFO - Generated signature: +MQXaBZeeK...
+2025-06-09 02:37:26,908 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=+MQXaBZeeK...|58=20250609-02:37:26.908|1137=9|57=MD
+2025-06-09 02:37:26,917 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:37:26,940 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:37:35,729 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:37:47,018 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:37:47,019 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
+2025-06-09 02:37:47,019 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-09 02:37:47,019 - coinbase_hft.main - ERROR - Failed to connect, exiting
+2025-06-09 02:42:08,869 - coinbase_hft.strategy - INFO - Created new model
+2025-06-09 02:42:08,870 - coinbase_hft.execution - INFO - ExecutionEngine initialized with latency budget: 100.0ms
+2025-06-09 02:42:08,870 - coinbase_hft.main - INFO - Starting HFT bot for BTC-PERP
+2025-06-09 02:42:08,925 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:42:08,925 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:42:08,925 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:42:08,925 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:42:08.925
+2025-06-09 02:42:08,926 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:42:08.925, api_key=Uw5h..., target_comp_id=CBINTLMD, passphrase=***
+2025-06-09 02:42:08,926 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:42:08,927 - coinbase_hft.fix_client - INFO - Generated signature: o3amdrC5iz...
+2025-06-09 02:42:08,927 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=o3amdrC5iz...|58=20250609-02:42:08.925|1137=9|57=MD
+2025-06-09 02:42:08,933 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:42:08,956 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:42:29,009 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:42:29,009 - coinbase_hft.fix_client - INFO - Retrying in 2 seconds...
+2025-06-09 02:42:31,010 - coinbase_hft.fix_client - INFO - Connection attempt 2/3 for market_data session
+2025-06-09 02:42:31,050 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:42:31,050 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:42:31,051 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:42:31,051 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:42:31.051
+2025-06-09 02:42:31,051 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:42:31.051, api_key=Uw5h..., target_comp_id=CBINTLMD, passphrase=***
+2025-06-09 02:42:31,051 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:42:31,051 - coinbase_hft.fix_client - INFO - Generated signature: KocsbiDpga...
+2025-06-09 02:42:31,051 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=KocsbiDpga...|58=20250609-02:42:31.051|1137=9|57=MD
+2025-06-09 02:42:31,061 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:42:31,082 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:42:51,155 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:42:51,155 - coinbase_hft.fix_client - INFO - Retrying in 4 seconds...
+2025-06-09 02:42:54,008 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:42:55,157 - coinbase_hft.fix_client - INFO - Connection attempt 3/3 for market_data session
+2025-06-09 02:42:55,200 - custom_connection - INFO - SSL connection established to fix.international.coinbase.com:6120
+2025-06-09 02:42:55,200 - coinbase_hft.fix_client - INFO - Connected to fix.international.coinbase.com:6120 for market_data session
+2025-06-09 02:42:55,200 - coinbase_hft.fix_client - INFO - Socket ready, sending Logon message
+2025-06-09 02:42:55,200 - coinbase_hft.fix_client - INFO - Using timestamp for authentication: 20250609-02:42:55.200
+2025-06-09 02:42:55,201 - coinbase_hft.fix_client - INFO - Authentication message components: timestamp=20250609-02:42:55.200, api_key=Uw5h..., target_comp_id=CBINTLMD, passphrase=***
+2025-06-09 02:42:55,201 - coinbase_hft.fix_client - INFO - Decoded API secret length: 64 bytes
+2025-06-09 02:42:55,201 - coinbase_hft.fix_client - INFO - Generated signature: AMJvHr6U2t...
+2025-06-09 02:42:55,201 - coinbase_hft.fix_client - INFO - Sending Logon message for market_data session with fields: 98=0|108=30|141=Y|553=Uw5hfYKZDquhxYiH|554=emma|95=44|96=AMJvHr6U2t...|58=20250609-02:42:55.200|1137=9|57=MD
+2025-06-09 02:42:55,209 - coinbase_hft.fix_client - INFO - Logon message sent, waiting for response...
+2025-06-09 02:42:55,231 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:43:04,025 - coinbase_hft.fix_client - INFO - Client disconnected, with state: <ConnectionState.DISCONNECTED_BROKEN_CONN: 3>
+2025-06-09 02:43:15,306 - coinbase_hft.fix_client - ERROR - Authentication timeout after 20 seconds
+2025-06-09 02:43:15,307 - coinbase_hft.fix_client - ERROR - Failed to connect after 3 attempts
+2025-06-09 02:43:15,307 - coinbase_hft.main - ERROR - Failed to connect market data client
+2025-06-09 02:43:15,307 - coinbase_hft.main - ERROR - Failed to connect, exiting

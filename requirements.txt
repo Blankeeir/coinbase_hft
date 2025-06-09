@@ -1,3 +1,4 @@
+<<<<<<< ours
 # Coinbase International Exchange HFT Bot Dependencies
 asyncfix>=1.0.1  # Asyncio-based FIX protocol library
 pandas>=2.0.0    # Data manipulation and analysis
@@ -13,3 +14,14 @@ pydantic>=2.0.0  # Data validation and settings management
 streamlit>=1.22.0  # Dashboard UI
 plotly>=5.14.0  # Interactive charts for dashboard
 pytest>=7.0.0    # Testing framework
+=======
+asyncfix==1.0.1
+numpy
+pandas
+scikit-learn
+requests
+streamlit
+plotly
+python-dotenv
+pytest
+>>>>>>> theirs

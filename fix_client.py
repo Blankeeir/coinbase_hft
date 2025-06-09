@@ -344,7 +344,12 @@ class CoinbaseFIXClient:
                 logger.error("Cannot authenticate: Missing API credentials")
                 return False
 
-            # Generate UTC timestamp in ISO format
+            # Generate UTC timestamp in ISO format. This must match the value
+            # used in the FIX SendingTime (52) header to satisfy Coinbase
+            # authentication requirements. asyncfix automatically sets
+            # SendingTime using Codec.current_datetime() when encoding the
+            # message, so we temporarily patch this method to return our
+            # timestamp.
             utc_timestamp = self._get_utc_timestamp()
             logger.info(f"Using timestamp for authentication: {utc_timestamp}")
 
@@ -411,8 +416,15 @@ class CoinbaseFIXClient:
                 f"Sending Logon message for {self.session_type} session with fields: 98=0|108=30|141=Y|553={self.api_key}|554={self.passphrase}|95={len(signature)}|96={signature[:10]}...|58={utc_timestamp}|1137=9|57={self.target_sub_id}"
             )
 
-            # Send the Logon message
-            await self.connection.send_msg(logon_msg)
+            # Patch codec timestamp so SendingTime(52) matches our signature
+            codec = self.connection._codec
+            original_ts_func = codec.current_datetime
+            codec.current_datetime = lambda: utc_timestamp
+            try:
+                # Send the Logon message
+                await self.connection.send_msg(logon_msg)
+            finally:
+                codec.current_datetime = original_ts_func
             logger.info(f"Logon message sent, waiting for response...")
 
             # Return True to indicate the authentication request was sent successfully
