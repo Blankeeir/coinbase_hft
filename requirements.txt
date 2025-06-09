@@ -1,8 +1,9 @@
-quickfix
+asyncfix==1.0.1
 numpy
 pandas
 scikit-learn
 requests
-websockets
+streamlit
+plotly
 python-dotenv
 pytest
