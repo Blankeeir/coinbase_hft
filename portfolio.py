@@ -8,9 +8,10 @@ from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
 import pandas as pd
 import numpy as np
+import quickfix as fix
 
 import config
-from fix_client import CoinbaseFIXClient
+from quickfix_client import CoinbaseQuickFIXClient
 
 logger = logging.getLogger("coinbase_hft.portfolio")
 
@@ -206,7 +207,7 @@ class Portfolio:
     """
     Portfolio manager for tracking positions and P&L.
     """
-    def __init__(self, fix_client: CoinbaseFIXClient):
+    def __init__(self, fix_client: CoinbaseQuickFIXClient):
         """
         Initialize the portfolio.
         
@@ -253,7 +254,7 @@ class Portfolio:
         except Exception as e:
             logger.error(f"Error updating portfolio from fill: {e}")
     
-    def update_from_execution_report(self, message: Any) -> None:
+    def update_from_execution_report(self, message: fix.Message) -> None:
         """
         Update portfolio from an execution report.
         
@@ -261,31 +262,74 @@ class Portfolio:
             message: FIX execution report message
         """
         try:
-            exec_type = message.get_field(150, "")
+            exec_type_field = fix.ExecType()
+            if message.isSetField(exec_type_field.getField()):
+                message.getField(exec_type_field)
+                exec_type = exec_type_field.getValue()
+            else:
+                return
             
             if exec_type not in ["F", "1"]:  # Fill or Partial Fill
                 return
             
-            symbol = message.get_field(55, "")
-            side = message.get_field(54, "")
-            last_qty = float(message.get_field(32, "0"))
-            last_px = float(message.get_field(31, "0"))
+            symbol_field = fix.Symbol()
+            if message.isSetField(symbol_field.getField()):
+                message.getField(symbol_field)
+                symbol = symbol_field.getValue()
+            else:
+                return
+            
+            side_field = fix.Side()
+            if message.isSetField(side_field.getField()):
+                message.getField(side_field)
+                side = side_field.getValue()
+            else:
+                return
+            
+            last_qty_field = fix.LastQty()
+            if message.isSetField(last_qty_field.getField()):
+                message.getField(last_qty_field)
+                last_qty = float(last_qty_field.getValue())
+            else:
+                return
+            
+            last_px_field = fix.LastPx()
+            if message.isSetField(last_px_field.getField()):
+                message.getField(last_px_field)
+                last_px = float(last_px_field.getValue())
+            else:
+                return
             
             fees = []
             try:
-                no_misc_fees = int(message.get_field(136, "0"))
-                for i in range(no_misc_fees):
-                    fee_amt = float(message.get_field(137, "0"))
-                    fee_curr = message.get_field(138, "")
-                    fee_type = message.get_field(139, "")
+                no_misc_fees_field = fix.NoMiscFees()
+                if message.isSetField(no_misc_fees_field.getField()):
+                    message.getField(no_misc_fees_field)
+                    no_misc_fees = int(no_misc_fees_field.getValue())
                     
-                    fees.append({
-                        "amount": fee_amt,
-                        "currency": fee_curr,
-                        "type": fee_type,
-                    })
-            except (ValueError, KeyError):
-                logger.debug("No fee information found in execution report")
+                    for i in range(no_misc_fees):
+                        group = fix.Group(136, 137)
+                        message.getGroup(i+1, group)
+                        
+                        fee_amt_field = fix.MiscFeeAmt()
+                        group.getField(fee_amt_field)
+                        fee_amt = float(fee_amt_field.getValue())
+                        
+                        fee_curr_field = fix.MiscFeeCurr()
+                        group.getField(fee_curr_field)
+                        fee_curr = fee_curr_field.getValue()
+                        
+                        fee_type_field = fix.MiscFeeType()
+                        group.getField(fee_type_field)
+                        fee_type = fee_type_field.getValue()
+                        
+                        fees.append({
+                            "amount": fee_amt,
+                            "currency": fee_curr,
+                            "type": fee_type,
+                        })
+            except Exception as fee_error:
+                logger.debug(f"No fee information found in execution report: {fee_error}")
             
             side_map = {"1": "BUY", "2": "SELL"}
             side = side_map.get(side, side)
@@ -304,7 +348,7 @@ class Portfolio:
         except Exception as e:
             logger.error(f"Error updating portfolio from execution report: {e}")
     
-    def update_from_position_report(self, message: Any) -> None:
+    def update_from_position_report(self, message: fix.Message) -> None:
         """
         Update portfolio from a position report.
         
@@ -312,10 +356,33 @@ class Portfolio:
             message: FIX position report message
         """
         try:
-            symbol = message.get_field(55, "")
-            position_qty = float(message.get_field(702, "0"))
-            avg_px = float(message.get_field(704, "0"))
-            realized_pnl = float(message.get_field(730, "0"))
+            symbol_field = fix.Symbol()
+            if message.isSetField(symbol_field.getField()):
+                message.getField(symbol_field)
+                symbol = symbol_field.getValue()
+            else:
+                return
+            
+            position_qty_field = fix.PosQty()
+            if message.isSetField(position_qty_field.getField()):
+                message.getField(position_qty_field)
+                position_qty = float(position_qty_field.getValue())
+            else:
+                return
+            
+            avg_px_field = fix.AvgPx()
+            if message.isSetField(avg_px_field.getField()):
+                message.getField(avg_px_field)
+                avg_px = float(avg_px_field.getValue())
+            else:
+                avg_px = 0.0
+            
+            realized_pnl_field = fix.RealizedPnL()
+            if message.isSetField(realized_pnl_field.getField()):
+                message.getField(realized_pnl_field)
+                realized_pnl = float(realized_pnl_field.getValue())
+            else:
+                realized_pnl = 0.0
             
             report = {
                 "quantity": position_qty,
@@ -347,7 +414,7 @@ class Portfolio:
         except Exception as e:
             logger.error(f"Error updating market prices: {e}")
     
-    async def sync_positions(self) -> bool:
+    def sync_positions(self) -> bool:
         """
         Sync positions with exchange.
         
@@ -359,7 +426,7 @@ class Portfolio:
             if current_time - self.last_sync_time < self.sync_interval:
                 return True
             
-            success = await self.fix_client.request_positions()
+            success = self.fix_client.request_positions()
             if success:
                 logger.info("Sent position sync request")
             else:

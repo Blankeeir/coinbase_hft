@@ -2,7 +2,6 @@
 Main module for Coinbase International Exchange HFT Bot.
 Bootstraps the system and coordinates all components.
 """
-import asyncio
 import logging
 import time
 import os
@@ -10,10 +9,11 @@ import signal
 import sys
 from typing import Dict, List, Tuple, Optional, Any
 import argparse
-from asyncfix.message import FIXMessage
+import quickfix as fix
+import threading
 
 import config
-from fix_client import CoinbaseFIXClient
+from quickfix_client import CoinbaseQuickFIXClient
 from data_handler import DataHandler
 from strategy import ChannelBreakoutStrategy
 from execution import ExecutionEngine
@@ -46,18 +46,13 @@ class HFTBot:
         self.test_mode = test_mode
         self.data_handler = DataHandler()
         
-        self.market_data_client = CoinbaseFIXClient(
-            session_type="market_data",
-            on_market_data=self._on_market_data,
-            test_mode=self.test_mode,
-        )
+        # Initialize QuickFIX clients
+        self.market_data_client = CoinbaseQuickFIXClient(session_type="market_data", test_mode=self.test_mode)
+        self.market_data_client.on_market_data_callback = self._on_market_data
         
-        self.order_entry_client = CoinbaseFIXClient(
-            session_type="order_entry",
-            on_execution_report=self._on_execution_report,
-            on_position_report=self._on_position_report,
-            test_mode=self.test_mode,
-        )
+        self.order_entry_client = CoinbaseQuickFIXClient(session_type="order_entry", test_mode=self.test_mode)
+        self.order_entry_client.on_execution_report_callback = self._on_execution_report
+        self.order_entry_client.on_position_report_callback = self._on_position_report
         
         self.strategy = ChannelBreakoutStrategy(symbol, self.data_handler)
         order_book = self.data_handler.get_or_create_order_book(symbol)
@@ -77,7 +72,7 @@ class HFTBot:
         logger.info(f"Received signal {sig}, shutting down...")
         self.running = False
     
-    def _on_market_data(self, message: FIXMessage) -> None:
+    def _on_market_data(self, message: fix.Message) -> None:
         """
         Process market data message.
         
@@ -87,17 +82,21 @@ class HFTBot:
         try:
             self.data_handler.process_market_data(message)
             
-            symbol = message.get_field(55, "")
-            if symbol:
-                order_book = self.data_handler.get_or_create_order_book(symbol)
-                mid_price = order_book.get_mid_price()
-                if mid_price > 0:
-                    self.portfolio.update_market_prices({symbol: mid_price})
+            symbol_field = fix.Symbol()
+            if message.isSetField(symbol_field.getField()):
+                message.getField(symbol_field)
+                symbol = symbol_field.getValue()
+                
+                if symbol:
+                    order_book = self.data_handler.get_or_create_order_book(symbol)
+                    mid_price = order_book.get_mid_price()
+                    if mid_price > 0:
+                        self.portfolio.update_market_prices({symbol: mid_price})
             
         except Exception as e:
             logger.error(f"Error processing market data: {e}")
     
-    def _on_execution_report(self, message: FIXMessage) -> None:
+    def _on_execution_report(self, message: fix.Message) -> None:
         """
         Process execution report.
         
@@ -109,16 +108,20 @@ class HFTBot:
             
             self.portfolio.update_from_execution_report(message)
             
-            symbol = message.get_field(55, "")
-            if symbol == self.symbol:
-                position = self.portfolio.get_position_quantity(symbol)
-                position_direction = 1 if position > 0 else (-1 if position < 0 else 0)
-                self.strategy.update_position(position_direction)
+            symbol_field = fix.Symbol()
+            if message.isSetField(symbol_field.getField()):
+                message.getField(symbol_field)
+                symbol = symbol_field.getValue()
+                
+                if symbol == self.symbol:
+                    position = self.portfolio.get_position_quantity(symbol)
+                    position_direction = 1 if position > 0 else (-1 if position < 0 else 0)
+                    self.strategy.update_position(position_direction)
             
         except Exception as e:
             logger.error(f"Error processing execution report: {e}")
     
-    def _on_position_report(self, message: FIXMessage) -> None:
+    def _on_position_report(self, message: fix.Message) -> None:
         """
         Process position report.
         
@@ -128,16 +131,20 @@ class HFTBot:
         try:
             self.portfolio.update_from_position_report(message)
             
-            symbol = message.get_field(55, "")
-            if symbol == self.symbol:
-                position = self.portfolio.get_position_quantity(symbol)
-                position_direction = 1 if position > 0 else (-1 if position < 0 else 0)
-                self.strategy.update_position(position_direction)
+            symbol_field = fix.Symbol()
+            if message.isSetField(symbol_field.getField()):
+                message.getField(symbol_field)
+                symbol = symbol_field.getValue()
+                
+                if symbol == self.symbol:
+                    position = self.portfolio.get_position_quantity(symbol)
+                    position_direction = 1 if position > 0 else (-1 if position < 0 else 0)
+                    self.strategy.update_position(position_direction)
             
         except Exception as e:
             logger.error(f"Error processing position report: {e}")
     
-    async def connect(self) -> bool:
+    def connect(self) -> bool:
         """
         Connect to exchange.
         
@@ -145,15 +152,15 @@ class HFTBot:
             bool: True if connection successful
         """
         try:
-            md_connected = await self.market_data_client.connect()
+            md_connected = self.market_data_client.connect()
             if not md_connected:
                 logger.error("Failed to connect market data client")
                 return False
             
-            oe_connected = await self.order_entry_client.connect()
+            oe_connected = self.order_entry_client.connect()
             if not oe_connected:
                 logger.error("Failed to connect order entry client")
-                await self.market_data_client.disconnect()
+                self.market_data_client.disconnect()
                 return False
             
             logger.info("Connected to exchange")
@@ -163,19 +170,19 @@ class HFTBot:
             logger.error(f"Error connecting to exchange: {e}")
             return False
     
-    async def disconnect(self) -> None:
+    def disconnect(self) -> None:
         """Disconnect from exchange."""
         try:
-            await self.market_data_client.disconnect()
+            self.market_data_client.disconnect()
             
-            await self.order_entry_client.disconnect()
+            self.order_entry_client.disconnect()
             
             logger.info("Disconnected from exchange")
             
         except Exception as e:
             logger.error(f"Error disconnecting from exchange: {e}")
     
-    async def subscribe_market_data(self) -> bool:
+    def subscribe_market_data(self) -> bool:
         """
         Subscribe to market data.
         
@@ -183,7 +190,7 @@ class HFTBot:
             bool: True if subscription successful
         """
         try:
-            subscribed = await self.market_data_client.subscribe_market_data(self.symbol)
+            subscribed = self.market_data_client.subscribe_market_data(self.symbol)
             if not subscribed:
                 logger.error(f"Failed to subscribe to market data for {self.symbol}")
                 return False
@@ -195,7 +202,7 @@ class HFTBot:
             logger.error(f"Error subscribing to market data: {e}")
             return False
     
-    async def sync_positions(self) -> bool:
+    def sync_positions(self) -> bool:
         """
         Sync positions with exchange.
         
@@ -203,7 +210,7 @@ class HFTBot:
             bool: True if sync successful
         """
         try:
-            synced = await self.portfolio.sync_positions()
+            synced = self.portfolio.sync_positions()
             if not synced:
                 logger.warning("Failed to sync positions")
                 return False
@@ -215,7 +222,7 @@ class HFTBot:
             logger.error(f"Error syncing positions: {e}")
             return False
     
-    async def trading_cycle(self) -> None:
+    def trading_cycle(self) -> None:
         """Run a single trading cycle."""
         try:
             cycle_start = time.time()
@@ -235,7 +242,7 @@ class HFTBot:
                 
                 position_size = config.POSITION_SIZE
                 
-                await self.execution.place_smart_order(
+                self.execution.place_smart_order(
                     symbol=self.symbol,
                     side="BUY",
                     quantity=position_size,
@@ -247,7 +254,7 @@ class HFTBot:
                 
                 position_size = config.POSITION_SIZE
                 
-                await self.execution.place_smart_order(
+                self.execution.place_smart_order(
                     symbol=self.symbol,
                     side="SELL",
                     quantity=position_size,
@@ -265,7 +272,7 @@ class HFTBot:
                     current_price = features.get("mid_price", 0)
                     
                     if current_price > 0:
-                        await self.execution.place_smart_order(
+                        self.execution.place_smart_order(
                             symbol=self.symbol,
                             side="SELL",
                             quantity=abs(position),
@@ -277,7 +284,7 @@ class HFTBot:
                     current_price = features.get("mid_price", 0)
                     
                     if current_price > 0:
-                        await self.execution.place_smart_order(
+                        self.execution.place_smart_order(
                             symbol=self.symbol,
                             side="BUY",
                             quantity=abs(position),
@@ -295,46 +302,46 @@ class HFTBot:
         except Exception as e:
             logger.error(f"Error in trading cycle: {e}")
     
-    async def run(self) -> None:
+    def run(self) -> None:
         """Run the HFT bot."""
         try:
             logger.info(f"Starting HFT bot for {self.symbol}")
             
-            connected = await self.connect()
+            connected = self.connect()
             if not connected:
                 logger.error("Failed to connect, exiting")
                 return
             
-            subscribed = await self.subscribe_market_data()
+            subscribed = self.subscribe_market_data()
             if not subscribed:
                 logger.error("Failed to subscribe to market data, exiting")
-                await self.disconnect()
+                self.disconnect()
                 return
             
-            await self.sync_positions()
+            self.sync_positions()
             
             logger.info("Waiting for initial market data...")
-            await asyncio.sleep(5)
+            time.sleep(5)
             
             self.running = True
             logger.info("Starting trading loop")
             
             while self.running:
-                await self.trading_cycle()
+                self.trading_cycle()
                 
                 cycle_time = self.last_cycle_time / 1000  # seconds
                 sleep_time = max(0, config.TRADING_CYCLE / 1000 - cycle_time)
-                await asyncio.sleep(sleep_time)
+                time.sleep(sleep_time)
             
-            await self.disconnect()
+            self.disconnect()
             
             logger.info("HFT bot stopped")
             
         except Exception as e:
             logger.error(f"Error running HFT bot: {e}")
-            await self.disconnect()
+            self.disconnect()
 
-async def main():
+def main():
     """Main entry point."""
     try:
         parser = argparse.ArgumentParser(description="Coinbase International Exchange HFT Bot")
@@ -351,7 +358,7 @@ async def main():
             test_mode=args.test,
         )
         
-        await bot.run()
+        bot.run()
         
     except Exception as e:
         logger.error(f"Error in main: {e}")
@@ -362,4 +369,4 @@ if __name__ == "__main__":
     os.makedirs("store", exist_ok=True)
     os.makedirs("models", exist_ok=True)
     
-    asyncio.run(main())
+    main()

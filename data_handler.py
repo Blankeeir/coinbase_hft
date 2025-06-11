@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 from collections import OrderedDict, deque
 import numpy as np
 import pandas as pd
-from asyncfix.message import FIXMessage
+import quickfix as fix
 
 import config
 
@@ -59,7 +59,7 @@ class OrderBook:
             []
         )  # (timestamp, vwap_distance)
 
-    def update_from_snapshot(self, message: FIXMessage) -> None:
+    def update_from_snapshot(self, message: fix.Message) -> None:
         """
         Update order book from a market data snapshot message.
 
@@ -70,12 +70,25 @@ class OrderBook:
             self.bids.clear()
             self.asks.clear()
 
-            no_md_entries = int(message.get_field(268, "0"))
+            no_md_entries_field = fix.NoMDEntries()
+            message.getField(no_md_entries_field)
+            no_md_entries = int(no_md_entries_field.getValue())
 
             for i in range(no_md_entries):
-                entry_type = message.get_field(269, "", i)
-                price = float(message.get_field(270, "0", i))
-                size = float(message.get_field(271, "0", i))
+                group = fix.Group(268, 269)
+                message.getGroup(i+1, group)
+                
+                entry_type_field = fix.MDEntryType()
+                group.getField(entry_type_field)
+                entry_type = entry_type_field.getValue()
+                
+                price_field = fix.MDEntryPx()
+                group.getField(price_field)
+                price = float(price_field.getValue())
+                
+                size_field = fix.MDEntrySize()
+                group.getField(size_field)
+                size = float(size_field.getValue())
 
                 if entry_type == "0":  # Bid
                     self.bids[price] = size
@@ -99,7 +112,7 @@ class OrderBook:
         except Exception as e:
             logger.error(f"Error updating order book from snapshot: {e}")
 
-    def update_from_incremental(self, message: FIXMessage) -> None:
+    def update_from_incremental(self, message: fix.Message) -> None:
         """
         Update order book from an incremental market data message.
 
@@ -107,13 +120,32 @@ class OrderBook:
             message: Market Data Incremental Refresh (X) message
         """
         try:
-            no_md_entries = int(message.get_field(268, "0"))
+            no_md_entries_field = fix.NoMDEntries()
+            message.getField(no_md_entries_field)
+            no_md_entries = int(no_md_entries_field.getValue())
 
             for i in range(no_md_entries):
-                entry_type = message.get_field(269, "", i)
-                price = float(message.get_field(270, "0", i))
-                size = float(message.get_field(271, "0", i))
-                update_action = message.get_field(279, "", i)
+                group = fix.Group(268, 269)
+                message.getGroup(i+1, group)
+                
+                entry_type_field = fix.MDEntryType()
+                group.getField(entry_type_field)
+                entry_type = entry_type_field.getValue()
+                
+                price_field = fix.MDEntryPx()
+                group.getField(price_field)
+                price = float(price_field.getValue())
+                
+                size_field = fix.MDEntrySize()
+                group.getField(size_field)
+                size = float(size_field.getValue())
+                
+                update_action_field = fix.MDUpdateAction()
+                if group.isSetField(update_action_field.getField()):
+                    group.getField(update_action_field)
+                    update_action = update_action_field.getValue()
+                else:
+                    update_action = "0"  # Default to New
 
                 if entry_type == "0":  # Bid
                     if update_action == "0":  # New
@@ -733,7 +765,7 @@ class DataHandler:
 
         return self.order_books[symbol]
 
-    def process_market_data(self, message: FIXMessage) -> None:
+    def process_market_data(self, message: fix.Message) -> None:
         """
         Process market data message.
 
@@ -741,8 +773,13 @@ class DataHandler:
             message: FIX market data message
         """
         try:
-            msg_type = message.get_field(35)
-            symbol = message.get_field(55)
+            msg_type_field = fix.MsgType()
+            message.getHeader().getField(msg_type_field)
+            msg_type = msg_type_field.getValue()
+            
+            symbol_field = fix.Symbol()
+            message.getField(symbol_field)
+            symbol = symbol_field.getValue()
 
             order_book = self.get_or_create_order_book(symbol)
 

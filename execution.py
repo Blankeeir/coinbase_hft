@@ -4,13 +4,13 @@ Handles smart order placement and risk management.
 """
 import logging
 import time
-import asyncio
 import uuid
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime as dt
+import quickfix as fix
 
 import config
-from fix_client import CoinbaseFIXClient
+from quickfix_client import CoinbaseQuickFIXClient
 
 logger = logging.getLogger("coinbase_hft.execution")
 
@@ -160,7 +160,7 @@ class ExecutionEngine:
                 self.fix.place_market_order(meta['side'], meta['qty'])
                 self.active_orders.pop(cloid, None)
                 
-    async def place_smart_order(self, symbol, side, quantity, price=None):
+    def place_smart_order(self, symbol, side, quantity, price=None):
         """
         Place a smart order with latency-aware execution.
         
@@ -185,7 +185,7 @@ class ExecutionEngine:
         
         if price:
             logger.info(f"Placing limit order: {order}")
-            await self.fix.place_limit_order(order_id, side, quantity, price)
+            self.fix.place_limit_order(order_id, side, quantity, price)
             self.active_orders[order_id] = {
                 'sent': time.time(),
                 'side': side,
@@ -194,7 +194,7 @@ class ExecutionEngine:
             }
         else:
             logger.info(f"Placing market order: {order}")
-            await self.fix.place_market_order(order_id, side, quantity)
+            self.fix.place_market_order(order_id, side, quantity)
         
         return order_id
     
@@ -206,12 +206,26 @@ class ExecutionEngine:
             message: FIX execution report message
         """
         try:
-            client_order_id = message.get_field(11, "")
-            if not client_order_id:
+            clord_id_field = fix.ClOrdID()
+            if message.isSetField(clord_id_field.getField()):
+                message.getField(clord_id_field)
+                client_order_id = clord_id_field.getValue()
+            else:
                 return
             
-            exec_type = message.get_field(150, "")
-            order_status = message.get_field(39, "")
+            exec_type_field = fix.ExecType()
+            if message.isSetField(exec_type_field.getField()):
+                message.getField(exec_type_field)
+                exec_type = exec_type_field.getValue()
+            else:
+                exec_type = ""
+            
+            order_status_field = fix.OrdStatus()
+            if message.isSetField(order_status_field.getField()):
+                message.getField(order_status_field)
+                order_status = order_status_field.getValue()
+            else:
+                order_status = ""
             
             if client_order_id in self.active_orders and order_status in ["2", "4"]:  # Filled or Canceled
                 self.active_orders.pop(client_order_id, None)
@@ -219,14 +233,44 @@ class ExecutionEngine:
             if client_order_id in self.orders:
                 order = self.orders[client_order_id]
                 
+                cum_qty = 0.0
+                cum_qty_field = fix.CumQty()
+                if message.isSetField(cum_qty_field.getField()):
+                    message.getField(cum_qty_field)
+                    cum_qty = float(cum_qty_field.getValue())
+                
+                avg_px = 0.0
+                avg_px_field = fix.AvgPx()
+                if message.isSetField(avg_px_field.getField()):
+                    message.getField(avg_px_field)
+                    avg_px = float(avg_px_field.getValue())
+                
+                last_qty = 0.0
+                last_qty_field = fix.LastQty()
+                if message.isSetField(last_qty_field.getField()):
+                    message.getField(last_qty_field)
+                    last_qty = float(last_qty_field.getValue())
+                
+                last_px = 0.0
+                last_px_field = fix.LastPx()
+                if message.isSetField(last_px_field.getField()):
+                    message.getField(last_px_field)
+                    last_px = float(last_px_field.getValue())
+                
+                order_id = ""
+                order_id_field = fix.OrderID()
+                if message.isSetField(order_id_field.getField()):
+                    message.getField(order_id_field)
+                    order_id = order_id_field.getValue()
+                
                 exec_report = {
                     "order_status": order_status,
                     "exec_type": exec_type,
-                    "cum_qty": float(message.get_field(14, "0")),
-                    "avg_px": float(message.get_field(6, "0")),
-                    "last_qty": float(message.get_field(32, "0")),
-                    "last_px": float(message.get_field(31, "0")),
-                    "order_id": message.get_field(37, "")
+                    "cum_qty": cum_qty,
+                    "avg_px": avg_px,
+                    "last_qty": last_qty,
+                    "last_px": last_px,
+                    "order_id": order_id
                 }
                 
                 order.update_from_execution_report(exec_report)
