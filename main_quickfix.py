@@ -1,5 +1,5 @@
 """
-Main module for Coinbase International Exchange HFT Bot.
+Main module for Coinbase International Exchange HFT Bot using QuickFIX.
 Bootstraps the system and coordinates all components.
 """
 import logging
@@ -7,10 +7,10 @@ import time
 import os
 import signal
 import sys
+import threading
 from typing import Dict, List, Tuple, Optional, Any
 import argparse
 import quickfix as fix
-import threading
 
 import config
 from quickfix_client import CoinbaseQuickFIXClient
@@ -23,7 +23,7 @@ logger = logging.getLogger("coinbase_hft.main")
 
 class HFTBot:
     """
-    High-Frequency Trading Bot for Coinbase International Exchange.
+    High-Frequency Trading Bot for Coinbase International Exchange using QuickFIX.
     Coordinates all components and runs the main trading loop.
     """
     def __init__(self, symbol: str, window: int = None, threshold: float = None, test_mode: bool = False):
@@ -31,7 +31,7 @@ class HFTBot:
         Initialize the HFT bot.
         
         Args:
-            symbol: Trading symbol (e.g., 'BTC-USD')
+            symbol: Trading symbol (e.g., 'BTC-PERP')
             window: Channel window in seconds (overrides config)
             threshold: OBI threshold (overrides config)
             test_mode: Run in test mode without real connection
@@ -46,11 +46,17 @@ class HFTBot:
         self.test_mode = test_mode
         self.data_handler = DataHandler()
         
-        # Initialize QuickFIX clients
-        self.market_data_client = CoinbaseQuickFIXClient(session_type="market_data", test_mode=self.test_mode)
-        self.market_data_client.on_market_data_callback = self._on_market_data
+        self.market_data_client = CoinbaseQuickFIXClient(
+            session_type="market_data",
+            test_mode=self.test_mode,
+        )
         
-        self.order_entry_client = CoinbaseQuickFIXClient(session_type="order_entry", test_mode=self.test_mode)
+        self.order_entry_client = CoinbaseQuickFIXClient(
+            session_type="order_entry",
+            test_mode=self.test_mode,
+        )
+        
+        self.market_data_client.on_market_data_callback = self._on_market_data
         self.order_entry_client.on_execution_report_callback = self._on_execution_report
         self.order_entry_client.on_position_report_callback = self._on_position_report
         
@@ -82,16 +88,12 @@ class HFTBot:
         try:
             self.data_handler.process_market_data(message)
             
-            symbol_field = fix.Symbol()
-            if message.isSetField(symbol_field.getField()):
-                message.getField(symbol_field)
-                symbol = symbol_field.getValue()
-                
-                if symbol:
-                    order_book = self.data_handler.get_or_create_order_book(symbol)
-                    mid_price = order_book.get_mid_price()
-                    if mid_price > 0:
-                        self.portfolio.update_market_prices({symbol: mid_price})
+            symbol = self._get_field_value(message, fix.Symbol())
+            if symbol:
+                order_book = self.data_handler.get_or_create_order_book(symbol)
+                mid_price = order_book.get_mid_price()
+                if mid_price > 0:
+                    self.portfolio.update_market_prices({symbol: mid_price})
             
         except Exception as e:
             logger.error(f"Error processing market data: {e}")
@@ -108,15 +110,11 @@ class HFTBot:
             
             self.portfolio.update_from_execution_report(message)
             
-            symbol_field = fix.Symbol()
-            if message.isSetField(symbol_field.getField()):
-                message.getField(symbol_field)
-                symbol = symbol_field.getValue()
-                
-                if symbol == self.symbol:
-                    position = self.portfolio.get_position_quantity(symbol)
-                    position_direction = 1 if position > 0 else (-1 if position < 0 else 0)
-                    self.strategy.update_position(position_direction)
+            symbol = self._get_field_value(message, fix.Symbol())
+            if symbol == self.symbol:
+                position = self.portfolio.get_position_quantity(symbol)
+                position_direction = 1 if position > 0 else (-1 if position < 0 else 0)
+                self.strategy.update_position(position_direction)
             
         except Exception as e:
             logger.error(f"Error processing execution report: {e}")
@@ -131,18 +129,33 @@ class HFTBot:
         try:
             self.portfolio.update_from_position_report(message)
             
-            symbol_field = fix.Symbol()
-            if message.isSetField(symbol_field.getField()):
-                message.getField(symbol_field)
-                symbol = symbol_field.getValue()
-                
-                if symbol == self.symbol:
-                    position = self.portfolio.get_position_quantity(symbol)
-                    position_direction = 1 if position > 0 else (-1 if position < 0 else 0)
-                    self.strategy.update_position(position_direction)
+            symbol = self._get_field_value(message, fix.Symbol())
+            if symbol == self.symbol:
+                position = self.portfolio.get_position_quantity(symbol)
+                position_direction = 1 if position > 0 else (-1 if position < 0 else 0)
+                self.strategy.update_position(position_direction)
             
         except Exception as e:
             logger.error(f"Error processing position report: {e}")
+    
+    def _get_field_value(self, message: fix.Message, field: fix.FieldBase, default_value: str = "") -> str:
+        """
+        Get field value from FIX message with error handling.
+        
+        Args:
+            message: FIX message
+            field: FIX field
+            default_value: Default value if field not found
+            
+        Returns:
+            str: Field value or default value
+        """
+        try:
+            if message.isSetField(field.getField()):
+                return message.getField(field.getField())
+            return default_value
+        except Exception:
+            return default_value
     
     def connect(self) -> bool:
         """
@@ -152,19 +165,48 @@ class HFTBot:
             bool: True if connection successful
         """
         try:
-            md_connected = self.market_data_client.connect()
-            if not md_connected:
-                logger.error("Failed to connect market data client")
-                return False
+            settings = fix.SessionSettings("coinbase_fix.cfg")
             
-            oe_connected = self.order_entry_client.connect()
-            if not oe_connected:
-                logger.error("Failed to connect order entry client")
-                self.market_data_client.disconnect()
-                return False
+            store_factory_md = fix.FileStoreFactory(settings)
+            log_factory_md = fix.FileLogFactory(settings)
+            initiator_md = fix.SocketInitiator(
+                self.market_data_client, 
+                store_factory_md, 
+                settings, 
+                log_factory_md
+            )
             
-            logger.info("Connected to exchange")
-            return True
+            store_factory_oe = fix.FileStoreFactory(settings)
+            log_factory_oe = fix.FileLogFactory(settings)
+            initiator_oe = fix.SocketInitiator(
+                self.order_entry_client, 
+                store_factory_oe, 
+                settings, 
+                log_factory_oe
+            )
+            
+            initiator_md.start()
+            initiator_oe.start()
+            
+            self.initiator_md = initiator_md
+            self.initiator_oe = initiator_oe
+            
+            timeout = 30  # seconds
+            start_time = time.time()
+            
+            while time.time() - start_time < timeout:
+                if self.market_data_client.authenticated and self.order_entry_client.authenticated:
+                    logger.info("Connected to exchange")
+                    return True
+                time.sleep(0.1)
+            
+            if not self.market_data_client.authenticated:
+                logger.error("Failed to authenticate market data client")
+            
+            if not self.order_entry_client.authenticated:
+                logger.error("Failed to authenticate order entry client")
+            
+            return False
             
         except Exception as e:
             logger.error(f"Error connecting to exchange: {e}")
@@ -173,9 +215,11 @@ class HFTBot:
     def disconnect(self) -> None:
         """Disconnect from exchange."""
         try:
-            self.market_data_client.disconnect()
+            if hasattr(self, 'initiator_md'):
+                self.initiator_md.stop()
             
-            self.order_entry_client.disconnect()
+            if hasattr(self, 'initiator_oe'):
+                self.initiator_oe.stop()
             
             logger.info("Disconnected from exchange")
             
@@ -345,7 +389,7 @@ def main():
     """Main entry point."""
     try:
         parser = argparse.ArgumentParser(description="Coinbase International Exchange HFT Bot")
-        parser.add_argument("--symbol", type=str, default=config.TRADING_SYMBOL, help="Trading symbol (e.g., 'BTC-USD')")
+        parser.add_argument("--symbol", type=str, default=config.TRADING_SYMBOL, help="Trading symbol (e.g., 'BTC-PERP')")
         parser.add_argument("--window", type=int, help="Channel window in seconds")
         parser.add_argument("--threshold", type=float, help="OBI threshold")
         parser.add_argument("--test", action="store_true", help="Run in test mode without real connection")
